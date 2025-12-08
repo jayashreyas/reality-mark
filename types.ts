@@ -1,13 +1,17 @@
+
 export type DealType = 'Sale' | 'Rental';
 export type DealStatus = 'Lead' | 'Active' | 'Under Contract' | 'Closed' | 'Lost';
 export type TaskStatus = 'To Do' | 'In Progress' | 'Waiting' | 'Completed';
 export type TaskPriority = 'High' | 'Normal' | 'Low';
 export type UpdateTag = 'Note' | 'Call' | 'Email' | 'Document' | 'Meeting';
+export type UserRole = 'admin' | 'agent';
 
 export interface User {
   id: string;
   displayName: string;
   initials: string;
+  role: UserRole;
+  email?: string;
 }
 
 export interface Deal {
@@ -46,6 +50,6 @@ export interface Update {
 
 export interface AppState {
   currentUser: User;
-  view: 'dashboard' | 'deals' | 'mytasks' | 'calendar' | 'deal-room';
+  view: 'dashboard' | 'deals' | 'mytasks' | 'calendar' | 'deal-room' | 'team';
   selectedDealId: string | null;
 }

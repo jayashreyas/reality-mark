@@ -1,13 +1,20 @@
+
 import { Deal, Task, Update, DealType, DealStatus, TaskStatus, TaskPriority, User } from '../types';
 
 // Seed data to make the app look alive immediately
-const SEED_USER: User = { id: 'u1', displayName: 'Alex Broker', initials: 'AB' };
+const SEED_USER: User = { 
+  id: 'u1', 
+  displayName: 'Shreyas', 
+  initials: 'S', 
+  role: 'admin',
+  email: 'shreyas@realitymark.com' 
+};
 
 const SEED_TEAM_MEMBERS: User[] = [
-  { id: 'u1', displayName: 'Alex Broker', initials: 'AB' },
-  { id: 'u2', displayName: 'Sarah Sales', initials: 'SS' },
-  { id: 'u3', displayName: 'Mike Manager', initials: 'MM' },
-  { id: 'u4', displayName: 'Linda Legal', initials: 'LL' },
+  { id: 'u1', displayName: 'Shreyas', initials: 'S', role: 'admin', email: 'shreyas@realitymark.com' },
+  { id: 'u2', displayName: 'Sarah Sales', initials: 'SS', role: 'agent', email: 'sarah@realitymark.com' },
+  { id: 'u3', displayName: 'Mike Manager', initials: 'MM', role: 'agent', email: 'mike@realitymark.com' },
+  { id: 'u4', displayName: 'Linda Legal', initials: 'LL', role: 'agent', email: 'linda@realitymark.com' },
 ];
 
 const SEED_DEALS: Deal[] = [
@@ -18,7 +25,7 @@ const SEED_DEALS: Deal[] = [
     type: 'Sale',
     status: 'Active',
     primaryAgentId: 'u1',
-    primaryAgentName: 'Alex Broker',
+    primaryAgentName: 'Shreyas',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -29,7 +36,7 @@ const SEED_DEALS: Deal[] = [
     type: 'Rental',
     status: 'Under Contract',
     primaryAgentId: 'u1',
-    primaryAgentName: 'Alex Broker',
+    primaryAgentName: 'Shreyas',
     createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
     updatedAt: new Date().toISOString(),
   },
@@ -40,7 +47,7 @@ const SEED_DEALS: Deal[] = [
     type: 'Sale',
     status: 'Lead',
     primaryAgentId: 'u1',
-    primaryAgentName: 'Alex Broker',
+    primaryAgentName: 'Shreyas',
     createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
     updatedAt: new Date().toISOString(),
   }
@@ -53,7 +60,7 @@ const SEED_TASKS: Task[] = [
     title: 'Schedule Photographer',
     status: 'To Do',
     priority: 'High',
-    assignedToName: 'Alex Broker',
+    assignedToName: 'Shreyas',
     dueDate: new Date(Date.now() + 86400000).toISOString(),
     createdAt: new Date().toISOString(),
   },
@@ -63,7 +70,7 @@ const SEED_TASKS: Task[] = [
     title: 'Order Sign Installation',
     status: 'Completed',
     priority: 'Normal',
-    assignedToName: 'Alex Broker',
+    assignedToName: 'Shreyas',
     dueDate: new Date(Date.now() - 86400000).toISOString(),
     createdAt: new Date().toISOString(),
   },
@@ -73,7 +80,7 @@ const SEED_TASKS: Task[] = [
     title: 'Draft Lease Agreement',
     status: 'In Progress',
     priority: 'High',
-    assignedToName: 'Alex Broker',
+    assignedToName: 'Shreyas',
     dueDate: new Date().toISOString(),
     createdAt: new Date().toISOString(),
   }
@@ -86,7 +93,7 @@ const SEED_UPDATES: Update[] = [
     content: 'Client agreed to list at $550k. Needs painting first.',
     tag: 'Call',
     userId: 'u1',
-    userName: 'Alex Broker',
+    userName: 'Shreyas',
     timestamp: new Date(Date.now() - 100000000).toISOString(),
   }
 ];
@@ -114,11 +121,25 @@ class DataService {
   }
 
   getTeamMembers(): User[] {
-    return SEED_TEAM_MEMBERS;
+    return this.load('team', SEED_TEAM_MEMBERS);
   }
 
   updateUser(user: User) {
     this.save('user', user);
+  }
+
+  addTeamMember(member: User) {
+    const team = this.getTeamMembers();
+    team.push(member);
+    this.save('team', team);
+    return team;
+  }
+
+  deleteTeamMember(id: string) {
+    let team = this.getTeamMembers();
+    team = team.filter(u => u.id !== id);
+    this.save('team', team);
+    return team;
   }
 
   // --- Deals ---

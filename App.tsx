@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './views/Dashboard';
@@ -5,6 +6,7 @@ import { DealList } from './views/DealList';
 import { MyTasks } from './views/MyTasks';
 import { CalendarView } from './views/CalendarView';
 import { DealRoom } from './views/DealRoom';
+import { TeamManagement } from './views/TeamManagement';
 import { AppState, Deal, Task, Update, User } from './types';
 import { dataService } from './services/dataService';
 import { Modal, InputGroup, Button } from './components/Shared';
@@ -130,6 +132,19 @@ export default function App() {
           tasks={tasks} 
           deals={deals}
           onOpenDeal={handleOpenDeal}
+        />
+      )}
+
+      {view === 'team' && currentUser.role === 'admin' && (
+        <TeamManagement
+          currentUser={currentUser}
+          teamMembers={teamMembers}
+          onTeamUpdate={(updatedTeam) => {
+            setTeamMembers(updatedTeam);
+            // If current user info was updated (unlikely in this view but good practice)
+            const me = updatedTeam.find(u => u.id === currentUser.id);
+            if (me) setCurrentUser(me);
+          }}
         />
       )}
 

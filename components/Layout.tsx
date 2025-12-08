@@ -1,5 +1,6 @@
+
 import React from 'react';
-import { Home, Briefcase, CheckSquare, Calendar, User as UserIcon, LogOut } from 'lucide-react';
+import { Home, Briefcase, CheckSquare, Calendar, Users, Shield } from 'lucide-react';
 import { User, AppState } from '../types';
 
 interface LayoutProps {
@@ -16,6 +17,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
     { id: 'mytasks', label: 'My Tasks', icon: <CheckSquare size={20} /> },
     { id: 'calendar', label: 'Calendar', icon: <Calendar size={20} /> },
   ];
+
+  if (user.role === 'admin') {
+    navItems.push({ id: 'team', label: 'Team', icon: <Users size={20} /> });
+  }
 
   return (
     <div className="flex h-screen bg-gray-50 font-sans text-gray-900">
@@ -53,7 +58,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
               {user.initials}
             </div>
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-sm font-medium text-white truncate">{user.displayName}</p>
+                {user.role === 'admin' && <Shield size={12} className="text-yellow-400" />}
+              </div>
               <p className="text-xs text-slate-500">View Profile</p>
             </div>
           </div>
