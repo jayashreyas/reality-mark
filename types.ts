@@ -5,6 +5,7 @@ export type TaskStatus = 'To Do' | 'In Progress' | 'Waiting' | 'Completed';
 export type TaskPriority = 'High' | 'Normal' | 'Low';
 export type UpdateTag = 'Note' | 'Call' | 'Email' | 'Document' | 'Meeting';
 export type UserRole = 'admin' | 'agent';
+export type GoogleCalendarStatus = 'disconnected' | 'connecting' | 'connected';
 
 export interface User {
   id: string;
@@ -46,6 +47,14 @@ export interface Update {
   userId: string;
   userName: string;
   timestamp: string; // ISO String
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  source?: 'google';
 }
 
 export interface AppState {

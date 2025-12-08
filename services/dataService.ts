@@ -98,6 +98,24 @@ const SEED_UPDATES: Update[] = [
   }
 ];
 
+// Mock Google Calendar Events
+const MOCK_GOOGLE_EVENTS = [
+  {
+    id: 'g1',
+    title: 'Client Meeting: Sarah Jenkins',
+    start: new Date(Date.now() + 86400000 * 2).toISOString(), // +2 days
+    end: new Date(Date.now() + 86400000 * 2 + 3600000).toISOString(),
+    source: 'google' as const,
+  },
+  {
+    id: 'g2',
+    title: 'Open House Prep',
+    start: new Date(Date.now() + 86400000 * 4).toISOString(), // +4 days
+    end: new Date(Date.now() + 86400000 * 4 + 7200000).toISOString(),
+    source: 'google' as const,
+  }
+];
+
 // Helper to simulate network delay
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -209,6 +227,12 @@ class DataService {
     }
   }
 
+  async deleteTask(taskId: string): Promise<void> {
+    let tasks = await this.getTasks();
+    tasks = tasks.filter(t => t.id !== taskId);
+    this.save('tasks', tasks);
+  }
+
   // --- Updates ---
   async getUpdates(dealId: string): Promise<Update[]> {
     await delay(200);
@@ -230,6 +254,12 @@ class DataService {
     updates.push(newUpdate);
     this.save('updates', updates);
     return newUpdate;
+  }
+
+  // --- Google Calendar ---
+  async getGoogleEvents(): Promise<any[]> {
+    await delay(500);
+    return MOCK_GOOGLE_EVENTS;
   }
 }
 

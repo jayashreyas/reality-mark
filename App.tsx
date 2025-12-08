@@ -131,6 +131,8 @@ export default function App() {
         <CalendarView 
           tasks={tasks} 
           deals={deals}
+          teamMembers={teamMembers}
+          onRefreshData={refreshData}
           onOpenDeal={handleOpenDeal}
         />
       )}
