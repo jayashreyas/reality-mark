@@ -3,9 +3,10 @@ export type DealType = 'Sale' | 'Rental';
 export type DealStatus = 'Lead' | 'Active' | 'Under Contract' | 'Closed' | 'Lost';
 export type TaskStatus = 'To Do' | 'In Progress' | 'Waiting' | 'Completed';
 export type TaskPriority = 'High' | 'Normal' | 'Low';
-export type UpdateTag = 'Note' | 'Call' | 'Email' | 'Document' | 'Meeting';
+export type UpdateTag = 'Note' | 'Call' | 'Email' | 'Document' | 'Meeting' | 'WhatsApp';
 export type UserRole = 'admin' | 'agent';
 export type GoogleCalendarStatus = 'disconnected' | 'connecting' | 'connected';
+export type ContactType = 'Buyer' | 'Seller' | 'Lead' | 'Vendor' | 'Other';
 
 export interface User {
   id: string;
@@ -13,6 +14,24 @@ export interface User {
   initials: string;
   role: UserRole;
   email?: string;
+}
+
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  type: ContactType;
+  notes?: string;
+  lastContacted?: string;
+}
+
+export interface DealDocument {
+  id: string;
+  name: string;
+  type: 'pdf' | 'image' | 'doc' | 'google-doc' | 'google-sheet' | 'google-slide' | 'other';
+  url: string;
+  uploadedAt: string;
 }
 
 export interface Deal {
@@ -26,6 +45,13 @@ export interface Deal {
   createdAt: string; // ISO String
   updatedAt: string; // ISO String
   notes?: string;
+  
+  // Financials
+  price: number;
+  commissionRate: number; // Percentage (e.g. 2.5)
+
+  // Documents
+  documents: DealDocument[];
 }
 
 export interface Task {
@@ -57,8 +83,32 @@ export interface CalendarEvent {
   source?: 'google';
 }
 
+export interface ChatChannel {
+  id: string;
+  name: string;
+  type: 'public' | 'private';
+}
+
+export interface ChatMessage {
+  id: string;
+  channelId: string;
+  userId: string;
+  userName: string;
+  userInitials: string;
+  content: string;
+  timestamp: string;
+}
+
+export interface Reminder {
+  id: string;
+  userId: string;
+  content: string;
+  isCompleted: boolean;
+  createdAt: string;
+}
+
 export interface AppState {
-  currentUser: User;
-  view: 'dashboard' | 'deals' | 'mytasks' | 'calendar' | 'deal-room' | 'team';
+  currentUser: User | null;
+  view: 'dashboard' | 'deals' | 'mytasks' | 'calendar' | 'deal-room' | 'team' | 'messages' | 'contacts' | 'profile';
   selectedDealId: string | null;
 }

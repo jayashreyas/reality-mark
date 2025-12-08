@@ -1,20 +1,19 @@
 
-import { Deal, Task, Update, DealType, DealStatus, TaskStatus, TaskPriority, User } from '../types';
+import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact } from '../types';
 
-// Seed data to make the app look alive immediately
-const SEED_USER: User = { 
-  id: 'u1', 
-  displayName: 'Shreyas', 
-  initials: 'S', 
-  role: 'admin',
-  email: 'shreyas@realitymark.com' 
-};
-
+// Seed data
 const SEED_TEAM_MEMBERS: User[] = [
   { id: 'u1', displayName: 'Shreyas', initials: 'S', role: 'admin', email: 'shreyas@realitymark.com' },
   { id: 'u2', displayName: 'Sarah Sales', initials: 'SS', role: 'agent', email: 'sarah@realitymark.com' },
   { id: 'u3', displayName: 'Mike Manager', initials: 'MM', role: 'agent', email: 'mike@realitymark.com' },
   { id: 'u4', displayName: 'Linda Legal', initials: 'LL', role: 'agent', email: 'linda@realitymark.com' },
+];
+
+const SEED_CONTACTS: Contact[] = [
+  { id: 'c1', name: 'Sarah Jenkins', email: 'sarah.j@example.com', phone: '(555) 123-4567', type: 'Seller', notes: 'Prefers texts. Selling due to relocation.', lastContacted: new Date().toISOString() },
+  { id: 'c2', name: 'Michael Bond', email: 'm.bond@example.com', phone: '(555) 987-6543', type: 'Buyer', notes: 'Looking for penthouse suites only.', lastContacted: new Date(Date.now() - 86400000 * 5).toISOString() },
+  { id: 'c3', name: 'John Doe', email: 'john@example.com', phone: '(555) 555-5555', type: 'Lead', notes: 'Met at open house. Interested in 3bd/2ba.', lastContacted: new Date(Date.now() - 86400000 * 10).toISOString() },
+  { id: 'c4', name: 'Best Photos Inc', email: 'book@bestphotos.com', phone: '(555) 111-2222', type: 'Vendor', notes: 'Our go-to photographer.', lastContacted: new Date(Date.now() - 86400000 * 20).toISOString() },
 ];
 
 const SEED_DEALS: Deal[] = [
@@ -28,6 +27,12 @@ const SEED_DEALS: Deal[] = [
     primaryAgentName: 'Shreyas',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    price: 550000,
+    commissionRate: 2.5,
+    documents: [
+      { id: 'doc1', name: 'Agency Disclosure.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() },
+      { id: 'doc2', name: 'Listing Agreement.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
+    ]
   },
   {
     id: 'd2',
@@ -39,6 +44,11 @@ const SEED_DEALS: Deal[] = [
     primaryAgentName: 'Shreyas',
     createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
     updatedAt: new Date().toISOString(),
+    price: 4500, // Monthly rent
+    commissionRate: 100, // 1 month rent
+    documents: [
+      { id: 'doc3', name: 'Lease Draft v1.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
+    ]
   },
   {
     id: 'd3',
@@ -50,6 +60,9 @@ const SEED_DEALS: Deal[] = [
     primaryAgentName: 'Shreyas',
     createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
     updatedAt: new Date().toISOString(),
+    price: 1200000,
+    commissionRate: 3.0,
+    documents: []
   }
 ];
 
@@ -98,7 +111,23 @@ const SEED_UPDATES: Update[] = [
   }
 ];
 
-// Mock Google Calendar Events
+const SEED_CHANNELS: ChatChannel[] = [
+  { id: 'general', name: 'General', type: 'public' },
+  { id: 'leads', name: 'Leads', type: 'public' },
+  { id: 'random', name: 'Random', type: 'public' },
+];
+
+const SEED_MESSAGES: ChatMessage[] = [
+  { id: 'm1', channelId: 'general', userId: 'u2', userName: 'Sarah Sales', userInitials: 'SS', content: 'Has anyone seen the keys for 124 Maple?', timestamp: new Date(Date.now() - 3600000).toISOString() },
+  { id: 'm2', channelId: 'general', userId: 'u1', userName: 'Shreyas', userInitials: 'S', content: 'Yes, they are in the lockbox.', timestamp: new Date(Date.now() - 3500000).toISOString() },
+  { id: 'm3', channelId: 'leads', userId: 'u3', userName: 'Mike Manager', userInitials: 'MM', content: 'New lead coming in for downtown rentals.', timestamp: new Date(Date.now() - 100000).toISOString() },
+];
+
+const SEED_REMINDERS: Reminder[] = [
+  { id: 'r1', userId: 'u1', content: 'Call back installer', isCompleted: false, createdAt: new Date().toISOString() },
+  { id: 'r2', userId: 'u1', content: 'Buy coffee for office', isCompleted: true, createdAt: new Date().toISOString() },
+];
+
 const MOCK_GOOGLE_EVENTS = [
   {
     id: 'g1',
@@ -116,34 +145,49 @@ const MOCK_GOOGLE_EVENTS = [
   }
 ];
 
-// Helper to simulate network delay
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 class DataService {
   private load<T>(key: string, seed: T): T {
-    const stored = localStorage.getItem(`reality_mark_${key}`);
-    if (!stored) {
-      localStorage.setItem(`reality_mark_${key}`, JSON.stringify(seed));
+    try {
+      const stored = localStorage.getItem(`reality_mark_${key}`);
+      if (!stored) {
+        localStorage.setItem(`reality_mark_${key}`, JSON.stringify(seed));
+        return seed;
+      }
+      return JSON.parse(stored);
+    } catch (e) {
+      console.error(`Error loading key ${key}`, e);
       return seed;
     }
-    return JSON.parse(stored);
   }
 
   private save(key: string, data: any) {
     localStorage.setItem(`reality_mark_${key}`, JSON.stringify(data));
   }
 
-  // --- User ---
-  getUser(): User {
-    return this.load('user', SEED_USER);
+  // --- Auth & User ---
+  getUser(): User | null {
+    const stored = localStorage.getItem('reality_mark_user');
+    return stored ? JSON.parse(stored) : null;
+  }
+
+  login(email: string): User | null {
+    const team = this.getTeamMembers();
+    const user = team.find(u => u.email?.toLowerCase() === email.toLowerCase());
+    if (user) {
+      localStorage.setItem('reality_mark_user', JSON.stringify(user));
+      return user;
+    }
+    return null;
+  }
+
+  logout() {
+    localStorage.removeItem('reality_mark_user');
   }
 
   getTeamMembers(): User[] {
     return this.load('team', SEED_TEAM_MEMBERS);
-  }
-
-  updateUser(user: User) {
-    this.save('user', user);
   }
 
   addTeamMember(member: User) {
@@ -160,6 +204,131 @@ class DataService {
     return team;
   }
 
+  updateUser(user: User): User {
+    let team = this.getTeamMembers();
+    const index = team.findIndex(u => u.id === user.id);
+    if (index !== -1) {
+      team[index] = user;
+      this.save('team', team);
+      // Update session user if it matches current
+      const currentUser = this.getUser();
+      if (currentUser && currentUser.id === user.id) {
+        localStorage.setItem('reality_mark_user', JSON.stringify(user));
+      }
+    }
+    return user;
+  }
+
+  // --- Contacts ---
+  async getContacts(): Promise<Contact[]> {
+    await delay(200);
+    return this.load('contacts', SEED_CONTACTS);
+  }
+
+  async addContact(contact: Omit<Contact, 'id'>): Promise<Contact> {
+    const contacts = await this.getContacts();
+    const newContact: Contact = {
+      ...contact,
+      id: `c${Date.now()}-${Math.random()}`,
+      lastContacted: new Date().toISOString()
+    };
+    contacts.push(newContact);
+    this.save('contacts', contacts);
+    return newContact;
+  }
+
+  async updateContact(contact: Contact): Promise<void> {
+    const contacts = await this.getContacts();
+    const index = contacts.findIndex(c => c.id === contact.id);
+    if (index !== -1) {
+      contacts[index] = contact;
+      this.save('contacts', contacts);
+    }
+  }
+
+  async deleteContact(id: string): Promise<void> {
+    let contacts = await this.getContacts();
+    contacts = contacts.filter(c => c.id !== id);
+    this.save('contacts', contacts);
+  }
+
+  // --- Chat ---
+  async getChannels(): Promise<ChatChannel[]> {
+    await delay(100);
+    return this.load('channels', SEED_CHANNELS);
+  }
+
+  async createChannel(name: string): Promise<ChatChannel> {
+    const channels = await this.getChannels();
+    const newChannel: ChatChannel = {
+      id: name.toLowerCase().replace(/\s+/g, '-'),
+      name,
+      type: 'public'
+    };
+    channels.push(newChannel);
+    this.save('channels', channels);
+    return newChannel;
+  }
+
+  async getMessages(channelId: string): Promise<ChatMessage[]> {
+    await delay(100);
+    const msgs = this.load<ChatMessage[]>('messages', SEED_MESSAGES);
+    return msgs.filter(m => m.channelId === channelId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
+  async sendMessage(msg: Omit<ChatMessage, 'id' | 'timestamp'>): Promise<ChatMessage> {
+    const msgs = this.load<ChatMessage[]>('messages', SEED_MESSAGES);
+    const newMsg: ChatMessage = {
+      ...msg,
+      id: `m${Date.now()}`,
+      timestamp: new Date().toISOString()
+    };
+    msgs.push(newMsg);
+    this.save('messages', msgs);
+    return newMsg;
+  }
+
+  async clearMessages(channelId: string): Promise<void> {
+    let msgs = this.load<ChatMessage[]>('messages', SEED_MESSAGES);
+    msgs = msgs.filter(m => m.channelId !== channelId);
+    this.save('messages', msgs);
+  }
+
+  // --- Reminders ---
+  async getReminders(userId: string): Promise<Reminder[]> {
+    const reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
+    return reminders.filter(r => r.userId === userId);
+  }
+
+  async addReminder(userId: string, content: string): Promise<Reminder> {
+    const reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
+    const newReminder: Reminder = {
+      id: `r${Date.now()}`,
+      userId,
+      content,
+      isCompleted: false,
+      createdAt: new Date().toISOString()
+    };
+    reminders.push(newReminder);
+    this.save('reminders', reminders);
+    return newReminder;
+  }
+
+  async toggleReminder(id: string): Promise<void> {
+    const reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
+    const index = reminders.findIndex(r => r.id === id);
+    if (index !== -1) {
+      reminders[index].isCompleted = !reminders[index].isCompleted;
+      this.save('reminders', reminders);
+    }
+  }
+
+  async deleteReminder(id: string) {
+    let reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
+    reminders = reminders.filter(r => r.id !== id);
+    this.save('reminders', reminders);
+  }
+
   // --- Deals ---
   async getDeals(): Promise<Deal[]> {
     await delay(300);
@@ -168,11 +337,18 @@ class DataService {
 
   async createDeal(deal: Deal): Promise<Deal> {
     const deals = await this.getDeals();
-    const newDeal = { ...deal, id: `d${Date.now()}`, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+    const newDeal: Deal = { 
+      ...deal, 
+      id: `d${Date.now()}`, 
+      createdAt: new Date().toISOString(), 
+      updatedAt: new Date().toISOString(),
+      price: 0,
+      commissionRate: deal.type === 'Sale' ? 2.5 : 0,
+      documents: []
+    };
     deals.push(newDeal);
     this.save('deals', deals);
     
-    // Auto-generate tasks
     if (newDeal.type === 'Sale') {
       await this.createTask({ dealId: newDeal.id, title: 'Send Agency Disclosure', priority: 'High', status: 'To Do', assignedToName: newDeal.primaryAgentName, dueDate: new Date().toISOString(), createdAt: new Date().toISOString(), id: '' });
       await this.createTask({ dealId: newDeal.id, title: 'Schedule Photography', priority: 'Normal', status: 'To Do', assignedToName: newDeal.primaryAgentName, dueDate: new Date().toISOString(), createdAt: new Date().toISOString(), id: '' });
@@ -180,7 +356,6 @@ class DataService {
       await this.createTask({ dealId: newDeal.id, title: 'Verify Income/Credit', priority: 'High', status: 'To Do', assignedToName: newDeal.primaryAgentName, dueDate: new Date().toISOString(), createdAt: new Date().toISOString(), id: '' });
     }
     
-    // Initial update
     await this.addUpdate({ dealId: newDeal.id, content: 'Deal created', tag: 'Note', userId: newDeal.primaryAgentId, userName: newDeal.primaryAgentName, timestamp: new Date().toISOString(), id: '' });
 
     return newDeal;
@@ -193,6 +368,70 @@ class DataService {
       deals[index] = { ...deal, updatedAt: new Date().toISOString() };
       this.save('deals', deals);
     }
+  }
+
+  // --- Documents ---
+  async addDocument(dealId: string, file: File): Promise<DealDocument> {
+    await delay(500); 
+    const deals = await this.getDeals();
+    const dealIndex = deals.findIndex(d => d.id === dealId);
+    
+    if (dealIndex === -1) throw new Error("Deal not found");
+    
+    const newDoc: DealDocument = {
+      id: `doc${Date.now()}`,
+      name: file.name,
+      type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'other',
+      url: '#',
+      uploadedAt: new Date().toISOString()
+    };
+
+    deals[dealIndex].documents.push(newDoc);
+    this.save('deals', deals);
+    
+    await this.addUpdate({
+      dealId,
+      content: `Uploaded document: ${file.name}`,
+      tag: 'Document',
+      userId: this.getUser()?.id || 'unknown',
+      userName: this.getUser()?.displayName || 'Unknown',
+      timestamp: new Date().toISOString(),
+      id: ''
+    });
+
+    return newDoc;
+  }
+
+  async createGoogleFile(dealId: string, name: string, type: 'google-doc' | 'google-sheet' | 'google-slide'): Promise<DealDocument> {
+    await delay(300);
+    const deals = await this.getDeals();
+    const dealIndex = deals.findIndex(d => d.id === dealId);
+    if (dealIndex === -1) throw new Error("Deal not found");
+
+    const newDoc: DealDocument = {
+      id: `g${Date.now()}`,
+      name: name,
+      type: type,
+      url: '#', // In a real app, this would be the drive file URL
+      uploadedAt: new Date().toISOString()
+    };
+
+    deals[dealIndex].documents.push(newDoc);
+    this.save('deals', deals);
+    
+    const typeLabel = type === 'google-doc' ? 'Google Doc' : type === 'google-sheet' ? 'Google Sheet' : 'Google Slide';
+
+    await this.addUpdate({
+        dealId,
+        content: `Created new ${typeLabel}: ${name}`,
+        tag: 'Document',
+        userId: this.getUser()?.id || 'unknown',
+        userName: this.getUser()?.displayName || 'Unknown',
+        timestamp: new Date().toISOString(),
+        id: ''
+    });
+
+    return newDoc;
   }
 
   // --- Tasks ---

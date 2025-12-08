@@ -7,6 +7,10 @@ import { MyTasks } from './views/MyTasks';
 import { CalendarView } from './views/CalendarView';
 import { DealRoom } from './views/DealRoom';
 import { TeamManagement } from './views/TeamManagement';
+import { Chat } from './views/Chat';
+import { Contacts } from './views/Contacts';
+import { Login } from './views/Login';
+import { Profile } from './views/Profile';
 import { AppState, Deal, Task, Update, User } from './types';
 import { dataService } from './services/dataService';
 import { Modal, InputGroup, Button } from './components/Shared';
@@ -14,7 +18,7 @@ import { Modal, InputGroup, Button } from './components/Shared';
 export default function App() {
   const [view, setView] = useState<AppState['view']>('dashboard');
   const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<User>(dataService.getUser());
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Data State
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -31,7 +35,19 @@ export default function App() {
   const [newDealAddress, setNewDealAddress] = useState('');
   const [newDealType, setNewDealType] = useState('Sale');
 
+  useEffect(() => {
+    // Check for logged in user on mount
+    const user = dataService.getUser();
+    setCurrentUser(user);
+    if (user) {
+      refreshData();
+    } else {
+      setIsLoading(false);
+    }
+  }, []);
+
   const refreshData = async () => {
+    setIsLoading(true);
     const d = await dataService.getDeals();
     const t = await dataService.getTasks();
     const tm = dataService.getTeamMembers();
@@ -46,14 +62,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    refreshData();
-  }, []);
-
-  useEffect(() => {
-    if (selectedDealId) {
+    if (selectedDealId && currentUser) {
       dataService.getUpdates(selectedDealId).then(setActiveUpdates);
     }
-  }, [selectedDealId]);
+  }, [selectedDealId, currentUser]);
 
   const handleNavigate = (newView: AppState['view']) => {
     setView(newView);
@@ -65,8 +77,18 @@ export default function App() {
     setView('deal-room');
   };
 
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setView('dashboard');
+  };
+
+  const handleLogin = (user: User) => {
+    setCurrentUser(user);
+    refreshData();
+  };
+
   const handleCreateDeal = async () => {
-    if (!newDealClient || !newDealAddress) return;
+    if (!newDealClient || !newDealAddress || !currentUser) return;
     
     setIsLoading(true);
     const newDeal = await dataService.createDeal({
@@ -79,6 +101,9 @@ export default function App() {
       primaryAgentName: currentUser.displayName,
       createdAt: '',
       updatedAt: '',
+      price: 0,
+      commissionRate: 0,
+      documents: []
     });
     
     setNewDealClient('');
@@ -88,6 +113,11 @@ export default function App() {
     handleOpenDeal(newDeal.id);
   };
 
+  // Auth Guard
+  if (!currentUser) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   if (isLoading && deals.length === 0) {
     return <div className="h-screen w-screen flex items-center justify-center bg-gray-50 text-indigo-600 font-medium animate-pulse">Loading Reality Mark...</div>;
   }
@@ -96,7 +126,7 @@ export default function App() {
   const dealTasks = tasks.filter(t => t.dealId === selectedDealId);
 
   return (
-    <Layout user={currentUser} currentView={view} onNavigate={handleNavigate}>
+    <Layout user={currentUser} currentView={view} onNavigate={handleNavigate} onLogout={handleLogout}>
       {view === 'dashboard' && (
         <Dashboard 
           deals={deals} 
@@ -116,6 +146,8 @@ export default function App() {
         />
       )}
       
+      {view === 'contacts' && <Contacts />}
+
       {view === 'mytasks' && (
         <MyTasks 
           tasks={tasks} 
@@ -137,6 +169,10 @@ export default function App() {
         />
       )}
 
+      {view === 'messages' && (
+        <Chat currentUser={currentUser} />
+      )}
+
       {view === 'team' && currentUser.role === 'admin' && (
         <TeamManagement
           currentUser={currentUser}
@@ -146,6 +182,16 @@ export default function App() {
             // If current user info was updated (unlikely in this view but good practice)
             const me = updatedTeam.find(u => u.id === currentUser.id);
             if (me) setCurrentUser(me);
+          }}
+        />
+      )}
+
+      {view === 'profile' && (
+        <Profile 
+          user={currentUser} 
+          onUpdate={(updatedUser) => {
+             setCurrentUser(updatedUser);
+             refreshData();
           }}
         />
       )}

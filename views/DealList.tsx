@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Deal, Task } from '../types';
 import { Card, Badge, Button, InputGroup } from '../components/Shared';
@@ -27,6 +28,10 @@ export const DealList: React.FC<DealListProps> = ({ deals, tasks, onOpenDeal, on
       .filter(t => t.dealId === dealId && t.status !== 'Completed')
       .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     return dealTasks[0];
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(amount);
   };
 
   return (
@@ -80,7 +85,7 @@ export const DealList: React.FC<DealListProps> = ({ deals, tasks, onOpenDeal, on
               <tr>
                 <th className="px-6 py-3">Property</th>
                 <th className="px-6 py-3">Client</th>
-                <th className="px-6 py-3">Type</th>
+                <th className="px-6 py-3">Price</th>
                 <th className="px-6 py-3">Status</th>
                 <th className="px-6 py-3">Next Action</th>
                 <th className="px-6 py-3 text-right">Actions</th>
@@ -102,7 +107,7 @@ export const DealList: React.FC<DealListProps> = ({ deals, tasks, onOpenDeal, on
                         {deal.clientName}
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-500">{deal.type}</td>
+                     <td className="px-6 py-4 text-gray-600">{formatCurrency(deal.price)}</td>
                     <td className="px-6 py-4">
                        <Badge color={
                          deal.status === 'Lead' ? 'yellow' : 
