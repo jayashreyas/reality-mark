@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Deal, Task, Update, User, TaskStatus, DealDocument, Offer, OfferStatus } from '../types';
 import { Card, Badge, Button, Modal, InputGroup } from '../components/Shared';
-import { ArrowLeft, MoreHorizontal, Plus, Send, Phone, Mail, FileText, Sparkles, AlertCircle, User as UserIcon, DollarSign, File, Upload, Download, Table as TableIcon, Presentation, ChevronDown, Trash2, Edit2, Calendar } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, Plus, Send, Phone, Mail, FileText, Sparkles, AlertCircle, User as UserIcon, DollarSign, File, Upload, Download, Table as TableIcon, Presentation, ChevronDown, Trash2, Edit2, Calendar, MapPin, Briefcase, CheckSquare, PlusCircle } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { generateListingDescription, summarizeDealActivity } from '../services/geminiService';
 
@@ -52,8 +52,23 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
   // Offers State
   const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
   const [currentOffer, setCurrentOffer] = useState<Offer | null>(null);
+  const [activeOfferTab, setActiveOfferTab] = useState<'details' | 'tasks' | 'activity' | 'documents'>('details');
+  const [offerTasks, setOfferTasks] = useState<Task[]>([]);
+  const [offerUpdates, setOfferUpdates] = useState<Update[]>([]);
+  const [newOfferTask, setNewOfferTask] = useState('');
+  const [newOfferUpdateContent, setNewOfferUpdateContent] = useState('');
+  const offerScrollRef = useRef<HTMLDivElement>(null);
+  
+  // Offer Form State
+  const [offerPropertyAddress, setOfferPropertyAddress] = useState('');
   const [offerClient, setOfferClient] = useState('');
+  const [offerCoBuyer, setOfferCoBuyer] = useState('');
+  const [offerEmail, setOfferEmail] = useState('');
+  const [offerCoBuyerEmail, setOfferCoBuyerEmail] = useState('');
+  const [offerAddress, setOfferAddress] = useState('');
   const [offerAmount, setOfferAmount] = useState<number>(0);
+  const [offerEMDPercent, setOfferEMDPercent] = useState<number>(1.0); // Default 1%
+  const [offerLoanType, setOfferLoanType] = useState('Conventional');
   const [offerStatus, setOfferStatus] = useState<OfferStatus>('Pending');
   const [offerNotes, setOfferNotes] = useState('');
 
@@ -63,13 +78,18 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
     }
   }, [updates, activeTab]);
 
+  useEffect(() => {
+    if (activeOfferTab === 'activity' && offerScrollRef.current) {
+      offerScrollRef.current.scrollTop = offerScrollRef.current.scrollHeight;
+    }
+  }, [offerUpdates, activeOfferTab]);
+
   // --- Actions ---
 
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
     setIsAddingTask(true);
     
-    // Default to current user if state is empty, or "Unassigned" fallback
     const assignee = newTaskAssignee || user.displayName || 'Unassigned';
 
     await dataService.createTask({
@@ -81,7 +101,6 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
       dueDate: new Date(Date.now() + 86400000 * 2).toISOString() // +2 days
     });
     setNewTaskTitle('');
-    // Reset assignee to current user for convenience
     setNewTaskAssignee(user.displayName);
     setIsAddingTask(false);
     onRefreshData();
@@ -157,39 +176,80 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
 
   // --- Offer Actions ---
 
-  const handleOpenOfferModal = (offer?: Offer) => {
+  const handleOpenOfferModal = async (offer?: Offer) => {
+    setActiveOfferTab('details');
     if (offer) {
       setCurrentOffer(offer);
+      setOfferPropertyAddress(offer.propertyAddress || deal.address);
       setOfferClient(offer.clientName);
+      setOfferCoBuyer(offer.coBuyerName || '');
+      setOfferEmail(offer.buyerEmail || '');
+      setOfferCoBuyerEmail(offer.coBuyerEmail || '');
+      setOfferAddress(offer.buyerAddress || '');
       setOfferAmount(offer.amount);
+      setOfferEMDPercent(offer.earnestMoneyPercent || 1.0);
+      setOfferLoanType(offer.loanType || 'Conventional');
       setOfferStatus(offer.status);
       setOfferNotes(offer.notes || '');
+      
+      // Fetch sub-data
+      const allTasks = await dataService.getTasks();
+      setOfferTasks(allTasks.filter(t => t.offerId === offer.id));
+      const ups = await dataService.getOfferUpdates(offer.id);
+      setOfferUpdates(ups);
+
     } else {
       setCurrentOffer(null);
-      setOfferClient('');
+      setOfferPropertyAddress(deal.address);
+      setOfferClient(deal.clientName);
+      setOfferCoBuyer('');
+      setOfferEmail('');
+      setOfferCoBuyerEmail('');
+      setOfferAddress('');
       setOfferAmount(0);
+      setOfferEMDPercent(1.0);
+      setOfferLoanType('Conventional');
       setOfferStatus('Pending');
       setOfferNotes('');
+      setOfferTasks([]);
+      setOfferUpdates([]);
     }
     setIsOfferModalOpen(true);
   };
 
   const handleSaveOffer = async () => {
-    if (!offerClient || !offerAmount) return;
+    if (!offerClient || !offerAmount) {
+        alert("Please enter at least the Primary Buyer Name and Offer Price.");
+        return;
+    }
 
     if (currentOffer) {
       await dataService.updateOffer({
         ...currentOffer,
+        propertyAddress: offerPropertyAddress,
         clientName: offerClient,
+        coBuyerName: offerCoBuyer,
+        buyerEmail: offerEmail,
+        coBuyerEmail: offerCoBuyerEmail,
+        buyerAddress: offerAddress,
         amount: offerAmount,
+        earnestMoneyPercent: offerEMDPercent,
+        loanType: offerLoanType as any,
         status: offerStatus,
         notes: offerNotes
       });
     } else {
       await dataService.createOffer({
         dealId: deal.id,
+        propertyAddress: offerPropertyAddress,
         clientName: offerClient,
+        coBuyerName: offerCoBuyer,
+        buyerEmail: offerEmail,
+        coBuyerEmail: offerCoBuyerEmail,
+        buyerAddress: offerAddress,
         amount: offerAmount,
+        earnestMoneyPercent: offerEMDPercent,
+        loanType: offerLoanType as any,
         status: offerStatus,
         notes: offerNotes,
         submittedDate: new Date().toISOString(),
@@ -210,14 +270,63 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
   const handleOfferFileUpload = async (offerId: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       await dataService.addOfferDocument(offerId, e.target.files[0]);
+      // Update local state if editing
+      if (currentOffer && currentOffer.id === offerId) {
+         const updatedOffers = await dataService.getAllOffers();
+         const updated = updatedOffers.find(o => o.id === offerId);
+         if (updated) setCurrentOffer(updated);
+      }
       onRefreshData();
     }
   };
 
+  // --- Offer Sub-Data Handlers ---
+  const handleAddOfferTask = async () => {
+    if (!newOfferTask.trim() || !currentOffer) return;
+    const task = await dataService.createTask({
+      title: newOfferTask,
+      offerId: currentOffer.id,
+      status: 'To Do',
+      priority: 'Normal',
+      assignedToName: user.displayName,
+      dueDate: new Date().toISOString()
+    });
+    setOfferTasks([...offerTasks, task]);
+    setNewOfferTask('');
+  };
+
+  const handleToggleOfferTask = async (task: Task) => {
+    const newStatus = task.status === 'Completed' ? 'To Do' : 'Completed';
+    const updatedTask = { ...task, status: newStatus as any };
+    await dataService.updateTask(updatedTask);
+    setOfferTasks(offerTasks.map(t => t.id === task.id ? updatedTask : t));
+  };
+
+  const handleDeleteOfferTask = async (taskId: string) => {
+    await dataService.deleteTask(taskId);
+    setOfferTasks(offerTasks.filter(t => t.id !== taskId));
+  };
+
+  const handlePostOfferUpdate = async () => {
+    if (!newOfferUpdateContent.trim() || !currentOffer) return;
+    const update = await dataService.addUpdate({
+      offerId: currentOffer.id,
+      content: newOfferUpdateContent,
+      tag: 'Note',
+      userId: user.id,
+      userName: user.displayName
+    });
+    setOfferUpdates([update, ...offerUpdates]);
+    setNewOfferUpdateContent('');
+    
+    // Ensure sync
+    dataService.getOfferUpdates(currentOffer.id).then(setOfferUpdates);
+  };
 
   // --- Renderers ---
 
   const renderKanban = () => {
+    // ... existing Kanban renderer (unchanged)
     const columns: TaskStatus[] = ['To Do', 'In Progress', 'Waiting', 'Completed'];
     return (
       <div className="flex-1 overflow-x-auto">
@@ -235,7 +344,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                     <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-sm mb-3">
                       <div className="text-xs font-bold text-indigo-600 mb-2 uppercase tracking-wide">New Task</div>
                       <input 
-                        className="w-full text-sm border-b border-gray-200 focus:border-indigo-500 outline-none py-1 mb-2 bg-transparent placeholder-gray-400"
+                        className="w-full text-sm border-b border-gray-200 focus:border-indigo-500 outline-none py-1 mb-2 bg-white placeholder-gray-400 text-gray-900"
                         placeholder="What needs to be done?"
                         value={newTaskTitle}
                         onChange={e => setNewTaskTitle(e.target.value)}
@@ -243,7 +352,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                       />
                       <div className="flex gap-2 mb-3">
                          <select 
-                            className="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 flex-1 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                            className="text-xs bg-white border border-gray-200 rounded px-2 py-1 text-gray-900 flex-1 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                             value={newTaskAssignee}
                             onChange={(e) => setNewTaskAssignee(e.target.value)}
                           >
@@ -275,7 +384,6 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                       </div>
                       <div className="text-xs text-gray-500 mb-2">Due: {new Date(task.dueDate).toLocaleDateString()}</div>
                       
-                      {/* Assignee & Status */}
                       <div className="flex items-center gap-2 mb-3">
                          <UserIcon size={12} className="text-gray-400 flex-shrink-0" />
                          <select
@@ -292,7 +400,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                       </div>
 
                       <select 
-                        className="w-full text-xs border border-gray-200 rounded p-1 bg-gray-50 text-gray-700 cursor-pointer"
+                        className="w-full text-xs border border-gray-200 rounded p-1 bg-white text-gray-900 cursor-pointer"
                         value={task.status}
                         onChange={(e) => handleTaskStatusChange(task, e.target.value as TaskStatus)}
                       >
@@ -313,7 +421,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
   };
 
   const renderActivity = () => {
-    return (
+     return (
       <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         {/* Header with AI */}
         <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
@@ -387,7 +495,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
           </div>
           <div className="flex gap-2">
             <textarea
-              className="flex-1 border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none h-20"
+              className="flex-1 border border-gray-300 rounded-lg p-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none h-20 text-gray-900 bg-white"
               placeholder="Log a note, call, or update..."
               value={newUpdateContent}
               onChange={e => setNewUpdateContent(e.target.value)}
@@ -413,7 +521,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
   };
   
   const getFileColorClass = (doc: DealDocument) => {
-    switch (doc.type) {
+     switch (doc.type) {
         case 'google-doc': return 'bg-blue-100 text-blue-600';
         case 'google-sheet': return 'bg-emerald-100 text-emerald-600';
         case 'google-slide': return 'bg-amber-100 text-amber-600';
@@ -495,7 +603,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
     return (
       <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-            <h3 className="font-semibold text-gray-800">Offers ({offers.length})</h3>
+            <h3 className="font-semibold text-gray-800">Offers & Negotiation ({offers.length})</h3>
             <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => handleOpenOfferModal()}>
                 Log New Offer
             </Button>
@@ -504,72 +612,105 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
           {offers.length === 0 && (
               <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-100 rounded-xl">
                 <DollarSign size={48} className="mx-auto mb-2 opacity-20" />
-                <p>No offers received yet.</p>
-                <p className="text-xs">Log offers here to track negotiations.</p>
+                <p>No offers logged.</p>
+                <p className="text-xs">Track incoming or outgoing offers here.</p>
               </div>
           )}
-          <div className="grid grid-cols-1 gap-4">
+          <div className="grid grid-cols-1 gap-6">
              {offers.map(offer => (
-                <Card key={offer.id} className="p-4 border border-gray-200 hover:shadow-md transition-shadow relative group">
-                  <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-3">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-lg font-bold text-gray-900">{offer.clientName}</h4>
-                        <Badge color={
+                <Card key={offer.id} className="border border-gray-200 hover:shadow-lg transition-shadow relative group overflow-hidden" noPadding>
+                  <div className="p-5">
+                    {/* Header Row */}
+                    <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-2">
+                       <div>
+                          <h4 className="text-xl font-bold text-gray-900">{offer.clientName} {offer.coBuyerName ? `& ${offer.coBuyerName}` : ''}</h4>
+                           <div className="flex flex-col gap-1 text-sm text-gray-500 mt-1">
+                               <div className="flex items-center gap-1 font-medium text-indigo-700">
+                                   <MapPin size={14} /> {offer.propertyAddress || deal.address}
+                               </div>
+                               <div className="flex flex-wrap gap-4">
+                                   <span className="flex items-center gap-1"><Mail size={14} /> {offer.buyerEmail || 'No Email'}</span>
+                                   <span className="flex items-center gap-1"><MapPin size={14} /> {offer.buyerAddress || 'No Address'}</span>
+                               </div>
+                           </div>
+                       </div>
+                       <Badge color={
                           offer.status === 'Accepted' ? 'green' : 
                           offer.status === 'Rejected' ? 'red' :
                           offer.status === 'Countered' ? 'purple' : 
                           offer.status === 'Withdrawn' ? 'gray' : 'yellow'
                         }>{offer.status}</Badge>
-                      </div>
-                      <p className="text-xl font-bold text-emerald-600">${offer.amount.toLocaleString()}</p>
                     </div>
-                    <div className="text-right text-xs text-gray-500">
-                      <div className="flex items-center gap-1 justify-end"><Calendar size={12} /> {new Date(offer.submittedDate).toLocaleDateString()}</div>
-                      <div className="mt-1">ID: {offer.id}</div>
-                    </div>
-                  </div>
-                  
-                  {offer.notes && (
-                    <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700 mb-4 border border-gray-100">
-                       <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">Notes</span>
-                       {offer.notes}
-                    </div>
-                  )}
-                  
-                  {/* Documents Section within Offer */}
-                  <div className="mt-3">
-                    <div className="flex items-center justify-between mb-2">
-                       <span className="text-xs font-semibold text-gray-500 uppercase">Offer Documents</span>
-                       <div className="relative">
-                          <input 
-                            type="file" 
-                            id={`offer-doc-${offer.id}`} 
-                            className="hidden" 
-                            onChange={(e) => handleOfferFileUpload(offer.id, e)}
-                            onClick={(e) => (e.target as HTMLInputElement).value = ''}
-                          />
-                          <label htmlFor={`offer-doc-${offer.id}`} className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center gap-1">
-                             <Upload size={10} /> Upload Doc
-                          </label>
+
+                    {/* Financial Grid */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg border border-gray-100 mb-4">
+                       <div>
+                          <div className="text-xs text-gray-500 font-medium uppercase">Offer Price</div>
+                          <div className="text-lg font-bold text-gray-900">${offer.amount.toLocaleString()}</div>
+                       </div>
+                       <div>
+                          <div className="text-xs text-gray-500 font-medium uppercase">Earnest Money</div>
+                          <div className="text-base font-semibold text-gray-700">
+                              {offer.earnestMoneyPercent ? `${offer.earnestMoneyPercent}%` : 'N/A'}
+                              {offer.earnestMoneyPercent && (
+                                  <span className="text-xs text-gray-400 font-normal ml-1">
+                                      (${((offer.amount * offer.earnestMoneyPercent) / 100).toLocaleString()})
+                                  </span>
+                              )}
+                          </div>
+                       </div>
+                       <div>
+                          <div className="text-xs text-gray-500 font-medium uppercase">Loan Type</div>
+                          <div className="text-base font-semibold text-gray-700">{offer.loanType || 'N/A'}</div>
+                       </div>
+                       <div>
+                          <div className="text-xs text-gray-500 font-medium uppercase">Date</div>
+                          <div className="text-base font-semibold text-gray-700">{new Date(offer.submittedDate).toLocaleDateString()}</div>
                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      {offer.documents && offer.documents.length > 0 ? (
-                        offer.documents.map(doc => (
-                          <a key={doc.id} href="#" className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-md text-xs text-gray-700 hover:bg-gray-200 transition-colors border border-gray-200">
-                             <FileText size={12} className="text-gray-500" />
-                             {doc.name}
-                          </a>
-                        ))
-                      ) : (
-                        <span className="text-xs text-gray-400 italic">No documents attached</span>
-                      )}
+
+                    {/* Notes */}
+                    {offer.notes && (
+                      <div className="text-sm text-gray-600 mb-4 border-l-2 border-indigo-200 pl-3">
+                         {offer.notes}
+                      </div>
+                    )}
+                    
+                    {/* Documents */}
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-2">
+                         <span className="text-xs font-bold text-gray-500 uppercase">Packet Documents</span>
+                         <div className="relative">
+                            <input 
+                              type="file" 
+                              id={`offer-doc-${offer.id}`} 
+                              className="hidden" 
+                              onChange={(e) => handleOfferFileUpload(offer.id, e)}
+                              onClick={(e) => (e.target as HTMLInputElement).value = ''}
+                            />
+                            <label htmlFor={`offer-doc-${offer.id}`} className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center gap-1 font-medium">
+                               <Upload size={12} /> Add Doc
+                            </label>
+                         </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {offer.documents && offer.documents.length > 0 ? (
+                          offer.documents.map(doc => (
+                            <a key={doc.id} href="#" className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-md text-xs text-gray-700 hover:bg-gray-50 transition-colors border border-gray-200 shadow-sm">
+                               <FileText size={12} className={doc.name.toLowerCase().includes('approval') ? 'text-green-600' : 'text-gray-500'} />
+                               {doc.name}
+                            </a>
+                          ))
+                        ) : (
+                          <span className="text-xs text-gray-400 italic">No documents attached (Missing Pre-Approval/BFI)</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-gray-100 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                     <Button variant="outline" size="sm" icon={<Edit2 size={12} />} onClick={() => handleOpenOfferModal(offer)}>Edit</Button>
+                  
+                  {/* Footer Actions */}
+                  <div className="bg-gray-50 p-3 border-t border-gray-100 flex justify-end gap-2">
+                     <Button variant="outline" size="sm" icon={<Edit2 size={12} />} onClick={() => handleOpenOfferModal(offer)}>Manage Packet</Button>
                      <Button variant="danger" size="sm" icon={<Trash2 size={12} />} onClick={() => handleDeleteOffer(offer.id)}>Delete</Button>
                   </div>
                 </Card>
@@ -580,7 +721,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
     );
   };
 
-  // Helper for WhatsApp Icon (since it was missing in imports or custom svg needed)
+  // Helper for WhatsApp Icon
   const MessageSquareIcon = ({ size, className }: { size?: number, className?: string }) => (
     <svg 
       xmlns="http://www.w3.org/2000/svg" 
@@ -693,7 +834,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                   <span className="absolute left-3 top-2 text-gray-400">$</span>
                   <input 
                     type="number" 
-                    className="w-full pl-6 pr-3 py-1.5 border border-gray-300 rounded-md text-sm"
+                    className="w-full pl-6 pr-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white"
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
                     onBlur={handleFinancialUpdate}
@@ -704,7 +845,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                 <label className="block text-xs font-medium text-gray-500 mb-1">Commission {deal.type === 'Sale' ? '(%)' : '($)'}</label>
                 <input 
                   type="number" 
-                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-900 bg-white"
                   value={commission}
                   onChange={(e) => setCommission(Number(e.target.value))}
                   onBlur={handleFinancialUpdate}
@@ -749,7 +890,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
             <>
               <InputGroup label="Key Features">
                 <textarea 
-                  className="w-full border border-gray-300 rounded-md p-2 h-24 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-gray-300 rounded-md p-2 h-24 text-sm focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 bg-white"
                   placeholder="e.g. Renovated kitchen, hardwood floors, large backyard..."
                   value={genFeatures}
                   onChange={e => setGenFeatures(e.target.value)}
@@ -757,7 +898,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
               </InputGroup>
               <InputGroup label="Tone">
                 <select 
-                  className="w-full border border-gray-300 rounded-md p-2 text-sm"
+                  className="w-full border border-gray-300 rounded-md p-2 text-sm text-gray-900 bg-white"
                   value={genTone}
                   onChange={e => setGenTone(e.target.value)}
                 >
@@ -773,7 +914,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
             </>
           ) : (
             <>
-              <div className="bg-gray-50 p-3 rounded-md border border-gray-200 max-h-[300px] overflow-y-auto text-sm whitespace-pre-line">
+              <div className="bg-gray-50 p-3 rounded-md border border-gray-200 max-h-[300px] overflow-y-auto text-sm whitespace-pre-line text-gray-900">
                 {generatedListing}
               </div>
               <div className="flex gap-2">
@@ -794,7 +935,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
          <div className="space-y-4">
             <InputGroup label="File Name">
                <input 
-                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-gray-900 bg-white"
                   placeholder="e.g. Q3 Sales Report"
                   value={googleFileName}
                   onChange={e => setGoogleFileName(e.target.value)}
@@ -805,59 +946,322 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
          </div>
       </Modal>
 
-       {/* Offer Modal */}
-      <Modal isOpen={isOfferModalOpen} onClose={() => setIsOfferModalOpen(false)} title={currentOffer ? 'Edit Offer' : 'Log New Offer'}>
-         <div className="space-y-4">
-           <InputGroup label="Client/Buyer Name">
-             <input 
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Robert Smith"
-                value={offerClient}
-                onChange={e => setOfferClient(e.target.value)}
-             />
-           </InputGroup>
-           <InputGroup label="Offer Amount">
-             <div className="relative">
-                <span className="absolute left-3 top-2 text-gray-500">$</span>
-                <input 
-                  type="number"
-                  className="w-full border border-gray-300 rounded-md pl-6 p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="500000"
-                  value={offerAmount}
-                  onChange={e => setOfferAmount(Number(e.target.value))}
-                />
-             </div>
-           </InputGroup>
-           <InputGroup label="Status">
-             <select 
-                className="w-full border border-gray-300 rounded-md p-2 bg-white"
-                value={offerStatus}
-                onChange={e => setOfferStatus(e.target.value as OfferStatus)}
-             >
-                <option value="Pending">Pending</option>
-                <option value="Accepted">Accepted</option>
-                <option value="Rejected">Rejected</option>
-                <option value="Countered">Countered</option>
-                <option value="Withdrawn">Withdrawn</option>
-             </select>
-           </InputGroup>
-           <InputGroup label="Notes/Conditions">
-              <textarea 
-                className="w-full border border-gray-300 rounded-md p-2 h-24 focus:ring-2 focus:ring-indigo-500 outline-none"
-                placeholder="e.g. Subject to inspection..."
-                value={offerNotes}
-                onChange={e => setOfferNotes(e.target.value)}
-              />
-           </InputGroup>
-           <div className="pt-2">
-              <Button 
-                className="w-full" 
-                onClick={handleSaveOffer}
-                disabled={!offerClient || !offerAmount}
+       {/* Enhanced Offer Packet Modal (Mini Deal Room) */}
+      <Modal isOpen={isOfferModalOpen} onClose={() => setIsOfferModalOpen(false)} title={currentOffer ? 'Manage Offer Packet' : 'Log New Offer Packet'} maxWidth="max-w-4xl">
+         <div className="flex flex-col h-[70vh]">
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 mb-4 overflow-x-auto">
+              <button 
+                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeOfferTab === 'details' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveOfferTab('details')}
               >
-                {currentOffer ? 'Update Offer' : 'Log Offer'}
-              </Button>
-           </div>
+                Details
+              </button>
+              <button 
+                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeOfferTab === 'tasks' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveOfferTab('tasks')}
+                // Removed disabled
+              >
+                Tasks
+              </button>
+              <button 
+                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeOfferTab === 'activity' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveOfferTab('activity')}
+                // Removed disabled
+              >
+                Activity
+              </button>
+              <button 
+                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeOfferTab === 'documents' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                onClick={() => setActiveOfferTab('documents')}
+                // Removed disabled
+              >
+                Documents
+              </button>
+            </div>
+            
+            {!currentOffer && activeOfferTab !== 'details' && (
+               <div className="flex-1 flex items-center justify-center text-gray-400 text-sm italic">
+                  Please save the offer details first to access other tabs.
+               </div>
+            )}
+
+            {activeOfferTab === 'details' && (
+              <div className="space-y-6 overflow-y-auto pr-2 flex-1">
+                <InputGroup label="Property Address">
+                  <input 
+                      className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-gray-900 bg-white"
+                      placeholder="e.g. 123 Main St, Springfield"
+                      value={offerPropertyAddress}
+                      onChange={e => setOfferPropertyAddress(e.target.value)}
+                  />
+                </InputGroup>
+
+                {/* Section 1: Buyer Details */}
+                <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100">
+                  <h4 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2"><UserIcon size={16}/> Buyer Details</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <InputGroup label="Primary Buyer">
+                      <input 
+                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
+                          placeholder="e.g. John Smith"
+                          value={offerClient}
+                          onChange={e => setOfferClient(e.target.value)}
+                      />
+                    </InputGroup>
+                    <InputGroup label="Buyer Email">
+                      <input 
+                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
+                          placeholder="john@example.com"
+                          value={offerEmail}
+                          onChange={e => setOfferEmail(e.target.value)}
+                      />
+                    </InputGroup>
+                    <InputGroup label="Co-Buyer (Optional)">
+                      <input 
+                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
+                          placeholder="e.g. Mary Smith"
+                          value={offerCoBuyer}
+                          onChange={e => setOfferCoBuyer(e.target.value)}
+                      />
+                    </InputGroup>
+                    <InputGroup label="Co-Buyer Email">
+                      <input 
+                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
+                          placeholder="mary@example.com"
+                          value={offerCoBuyerEmail}
+                          onChange={e => setOfferCoBuyerEmail(e.target.value)}
+                      />
+                    </InputGroup>
+                    <div className="col-span-2">
+                      <InputGroup label="Current Mailing Address">
+                        <input 
+                            className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
+                            placeholder="e.g. 500 Park Ave, NY"
+                            value={offerAddress}
+                            onChange={e => setOfferAddress(e.target.value)}
+                        />
+                      </InputGroup>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 2: Financial Terms */}
+                <div className="bg-emerald-50/50 p-4 rounded-lg border border-emerald-100">
+                  <h4 className="text-sm font-bold text-emerald-900 mb-3 flex items-center gap-2"><Briefcase size={16}/> Financial Terms</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                      <InputGroup label="Offer Price">
+                        <div className="relative">
+                            <span className="absolute left-3 top-2 text-gray-500 text-sm">$</span>
+                            <input 
+                              type="number"
+                              className="w-full border border-gray-300 rounded-md pl-6 p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-gray-900 bg-white"
+                              placeholder="0"
+                              value={offerAmount}
+                              onChange={e => setOfferAmount(Number(e.target.value))}
+                            />
+                        </div>
+                      </InputGroup>
+                      <InputGroup label="EMD % (Earnest Money)">
+                        <div className="flex items-center gap-2">
+                          <div className="relative flex-1">
+                              <input 
+                                type="number"
+                                step="0.1"
+                                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
+                                placeholder="1.0"
+                                value={offerEMDPercent}
+                                onChange={e => setOfferEMDPercent(Number(e.target.value))}
+                              />
+                              <span className="absolute right-3 top-2 text-gray-500 text-sm">%</span>
+                          </div>
+                          <div className="text-sm text-gray-500 font-medium whitespace-nowrap">
+                            = ${((offerAmount * offerEMDPercent) / 100).toLocaleString()}
+                          </div>
+                        </div>
+                      </InputGroup>
+                      <InputGroup label="Loan Type">
+                        <select 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-sm text-gray-900"
+                            value={offerLoanType}
+                            onChange={e => setOfferLoanType(e.target.value)}
+                        >
+                            <option value="Conventional">Conventional</option>
+                            <option value="FHA">FHA</option>
+                            <option value="VA">VA</option>
+                            <option value="Cash">Cash</option>
+                            <option value="Other">Other</option>
+                        </select>
+                      </InputGroup>
+                      <InputGroup label="Status">
+                        <select 
+                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-sm text-gray-900"
+                            value={offerStatus}
+                            onChange={e => setOfferStatus(e.target.value as OfferStatus)}
+                        >
+                            <option value="Pending">Pending</option>
+                            <option value="Accepted">Accepted</option>
+                            <option value="Rejected">Rejected</option>
+                            <option value="Countered">Countered</option>
+                            <option value="Withdrawn">Withdrawn</option>
+                        </select>
+                      </InputGroup>
+                  </div>
+                </div>
+
+                {/* Section 3: Notes & Docs */}
+                <div>
+                  <InputGroup label="Notes / Contingencies">
+                      <textarea 
+                        className="w-full border border-gray-300 rounded-md p-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
+                        placeholder="e.g. Inspection within 10 days, closing in 30 days..."
+                        value={offerNotes}
+                        onChange={e => setOfferNotes(e.target.value)}
+                      />
+                  </InputGroup>
+                </div>
+                
+                <div className="pt-2">
+                    <Button 
+                      className="w-full" 
+                      onClick={handleSaveOffer}
+                      // Removed disabled prop
+                    >
+                      {currentOffer ? 'Update Offer Packet' : 'Save Offer Packet'}
+                    </Button>
+                </div>
+              </div>
+            )}
+
+            {activeOfferTab === 'tasks' && currentOffer && (
+               <div className="flex-1 flex flex-col overflow-hidden">
+                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex-shrink-0">
+                    <h4 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
+                       <CheckSquare size={16} /> Tasks for this Offer
+                    </h4>
+                    <div className="flex gap-2">
+                       <input 
+                          className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
+                          placeholder="Add new task (e.g. Request BFI)"
+                          value={newOfferTask}
+                          onChange={e => setNewOfferTask(e.target.value)}
+                          onKeyDown={e => e.key === 'Enter' && handleAddOfferTask()}
+                       />
+                       <Button size="sm" icon={<PlusCircle size={16} />} onClick={handleAddOfferTask}>Add</Button>
+                    </div>
+                 </div>
+
+                 <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                    {offerTasks.length === 0 && (
+                       <p className="text-center text-gray-400 text-sm py-8">No tasks for this offer yet.</p>
+                    )}
+                    {offerTasks.map(task => (
+                       <div key={task.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+                          <div className="flex items-center gap-3">
+                             <input 
+                                type="checkbox" 
+                                checked={task.status === 'Completed'}
+                                onChange={() => handleToggleOfferTask(task)}
+                                className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                             />
+                             <span className={`text-sm text-gray-700 ${task.status === 'Completed' ? 'line-through text-gray-400' : ''}`}>
+                                {task.title}
+                             </span>
+                          </div>
+                          <button onClick={() => handleDeleteOfferTask(task.id)} className="text-gray-400 hover:text-red-500">
+                             <Trash2 size={14} />
+                          </button>
+                       </div>
+                    ))}
+                 </div>
+               </div>
+            )}
+
+            {activeOfferTab === 'activity' && currentOffer && (
+               <div className="flex-1 flex flex-col overflow-hidden">
+                   {/* Feed */}
+                   <div className="flex-1 overflow-y-auto space-y-3 pr-2 pb-2" ref={offerScrollRef}>
+                      {offerUpdates.length === 0 && (
+                          <p className="text-center text-gray-400 text-sm py-8">No activity logged for this offer yet.</p>
+                      )}
+                      {offerUpdates.map(update => {
+                        const isMe = update.userId === user.id;
+                        return (
+                          <div key={update.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[85%] rounded-xl p-3 text-sm ${isMe ? 'bg-indigo-50 text-indigo-900 rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
+                               <div className="flex items-center gap-1.5 mb-1 opacity-70 text-xs font-semibold">
+                                  <span>{update.userName}</span>
+                                  <span>•</span>
+                                  <span>{new Date(update.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                               </div>
+                               <p>{update.content}</p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                   </div>
+                   
+                   {/* Input */}
+                   <div className="pt-3 border-t border-gray-100 flex gap-2">
+                      <input 
+                         className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
+                         placeholder="Log a note or call..."
+                         value={newOfferUpdateContent}
+                         onChange={e => setNewOfferUpdateContent(e.target.value)}
+                         onKeyDown={e => e.key === 'Enter' && handlePostOfferUpdate()}
+                      />
+                      <Button size="sm" icon={<Send size={16} />} onClick={handlePostOfferUpdate} />
+                   </div>
+               </div>
+            )}
+
+            {activeOfferTab === 'documents' && currentOffer && (
+               <div className="flex-1 flex flex-col overflow-hidden">
+                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex justify-between items-center flex-shrink-0">
+                      <div>
+                        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
+                           <FileText size={16} /> Offer Documents
+                        </h4>
+                        <p className="text-xs text-gray-500 mt-0.5">Pre-approvals, BFI, Contracts</p>
+                      </div>
+                      <div className="relative">
+                            <input 
+                              type="file" 
+                              id={`modal-offer-doc-${currentOffer.id}`} 
+                              className="hidden" 
+                              onChange={(e) => handleOfferFileUpload(currentOffer.id, e)}
+                              onClick={(e) => (e.target as HTMLInputElement).value = ''}
+                            />
+                            <label htmlFor={`modal-offer-doc-${currentOffer.id}`} className="cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                               <Upload size={14} /> Upload New
+                            </label>
+                      </div>
+                   </div>
+
+                   <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                      {(!currentOffer.documents || currentOffer.documents.length === 0) && (
+                         <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-100 rounded-lg">
+                            <FileText size={32} className="mx-auto mb-2 opacity-20" />
+                            <p className="text-sm">No documents attached.</p>
+                         </div>
+                      )}
+                      {currentOffer.documents?.map(doc => (
+                         <div key={doc.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                               <div className="bg-blue-50 text-blue-600 p-2 rounded">
+                                  <FileText size={16} />
+                               </div>
+                               <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-900 truncate" title={doc.name}>{doc.name}</p>
+                                  <p className="text-xs text-gray-500">{new Date(doc.uploadedAt).toLocaleDateString()}</p>
+                               </div>
+                            </div>
+                            <Button variant="ghost" size="sm">Download</Button>
+                         </div>
+                      ))}
+                   </div>
+               </div>
+            )}
          </div>
       </Modal>
     </div>

@@ -1,5 +1,5 @@
 
-import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer } from '../types';
+import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer, Notification } from '../types';
 
 // Seed data
 const SEED_TEAM_MEMBERS: User[] = [
@@ -70,13 +70,21 @@ const SEED_OFFERS: Offer[] = [
   {
     id: 'o1',
     dealId: 'd1',
+    propertyAddress: '124 Maple Ave, Springfield',
     clientName: 'Robert Buyer',
+    coBuyerName: 'Emily Buyer',
+    buyerEmail: 'robert@buyer.com',
+    coBuyerEmail: 'emily@buyer.com',
+    buyerAddress: '44 Old Road, Townsville',
     amount: 540000,
+    earnestMoneyPercent: 1.0,
+    loanType: 'Conventional',
     status: 'Pending',
     submittedDate: new Date(Date.now() - 86400000).toISOString(),
-    notes: 'Pre-approved. Flexible closing timeline.',
+    notes: 'Pre-approved with Chase Bank. Flexible closing timeline.',
     documents: [
-      { id: 'odoc1', name: 'Offer Letter.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
+      { id: 'odoc1', name: 'Offer Letter.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() },
+      { id: 'odoc2', name: 'Chase Pre-Approval.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
     ]
   }
 ];
@@ -143,6 +151,12 @@ const SEED_REMINDERS: Reminder[] = [
   { id: 'r2', userId: 'u1', content: 'Buy coffee for office', isCompleted: true, createdAt: new Date().toISOString() },
 ];
 
+const SEED_NOTIFICATIONS: Notification[] = [
+  { id: 'n1', userId: 'u1', title: 'New Lead Assigned', message: 'You have been assigned to 88 Skyview Penthouse.', type: 'info', isRead: false, createdAt: new Date(Date.now() - 3600000).toISOString() },
+  { id: 'n2', userId: 'u1', title: 'Task Due Soon', message: 'Draft Lease Agreement is due today.', type: 'warning', isRead: false, createdAt: new Date(Date.now() - 7200000).toISOString() },
+  { id: 'n3', userId: 'u1', title: 'Offer Received', message: 'New offer on 124 Maple Ave.', type: 'success', isRead: true, createdAt: new Date(Date.now() - 86400000).toISOString() },
+];
+
 const MOCK_GOOGLE_EVENTS = [
   {
     id: 'g1',
@@ -202,7 +216,14 @@ class DataService {
   }
 
   getTeamMembers(): User[] {
-    return this.load('team', SEED_TEAM_MEMBERS);
+    const users = this.load('team', SEED_TEAM_MEMBERS);
+    // Ensure admin always exists for demo purposes if list is somehow empty or borked
+    if (!users.find(u => u.email === 'shreyas@realitymark.com')) {
+       // Merge seed admin back in
+       users.push(SEED_TEAM_MEMBERS[0]);
+       this.save('team', users);
+    }
+    return users;
   }
 
   addTeamMember(member: User) {
@@ -361,6 +382,27 @@ class DataService {
     this.save('reminders', reminders);
   }
 
+  // --- Notifications ---
+  async getNotifications(userId: string): Promise<Notification[]> {
+    const notifications = this.load<Notification[]>('notifications', SEED_NOTIFICATIONS);
+    return notifications.filter(n => n.userId === userId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    const notifications = this.load<Notification[]>('notifications', SEED_NOTIFICATIONS);
+    const index = notifications.findIndex(n => n.id === id);
+    if (index !== -1) {
+      notifications[index].isRead = true;
+      this.save('notifications', notifications);
+    }
+  }
+
+  async clearNotifications(userId: string): Promise<void> {
+    let notifications = this.load<Notification[]>('notifications', SEED_NOTIFICATIONS);
+    notifications = notifications.filter(n => n.userId !== userId);
+    this.save('notifications', notifications);
+  }
+
   // --- Deals ---
   async getDeals(): Promise<Deal[]> {
     await delay(300);
@@ -393,6 +435,26 @@ class DataService {
     return newDeal;
   }
 
+  async addDeals(dealsData: Omit<Deal, 'id' | 'createdAt' | 'updatedAt' | 'documents'>[]): Promise<Deal[]> {
+    const deals = await this.getDeals();
+    const currentUser = this.getUser();
+    
+    const newDeals: Deal[] = dealsData.map(d => ({
+        ...d,
+        id: `d${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        primaryAgentId: currentUser?.id || 'u1',
+        primaryAgentName: currentUser?.displayName || 'Admin',
+        documents: []
+    }));
+
+    deals.push(...newDeals);
+    this.save('deals', deals);
+    await delay(500);
+    return newDeals;
+  }
+
   async updateDeal(deal: Deal): Promise<void> {
     const deals = await this.getDeals();
     const index = deals.findIndex(d => d.id === deal.id);
@@ -423,18 +485,34 @@ class DataService {
     offers.push(newOffer);
     this.save('offers', offers);
     
-    // Log activity
-    await this.addUpdate({
-      dealId: offer.dealId,
-      content: `New offer received from ${offer.clientName} for $${offer.amount.toLocaleString()}`,
-      tag: 'Note',
-      userId: this.getUser()?.id || 'unknown',
-      userName: this.getUser()?.displayName || 'Unknown',
-      timestamp: new Date().toISOString(),
-      id: ''
-    });
+    // Log activity if linked to a deal
+    if (offer.dealId) {
+        await this.addUpdate({
+        dealId: offer.dealId,
+        content: `New offer logged for ${offer.clientName} on ${offer.propertyAddress}: $${offer.amount.toLocaleString()}`,
+        tag: 'Note',
+        userId: this.getUser()?.id || 'unknown',
+        userName: this.getUser()?.displayName || 'Unknown',
+        timestamp: new Date().toISOString(),
+        id: ''
+        });
+    }
 
     return newOffer;
+  }
+
+  async addOffers(offersData: Omit<Offer, 'id' | 'documents'>[]): Promise<Offer[]> {
+    const offers = await this.getAllOffers();
+    const newOffers: Offer[] = offersData.map(o => ({
+        ...o,
+        id: `o${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        documents: []
+    }));
+
+    offers.push(...newOffers);
+    this.save('offers', offers);
+    await delay(500);
+    return newOffers;
   }
 
   async updateOffer(offer: Offer): Promise<void> {
@@ -546,7 +624,8 @@ class DataService {
     const tasks = await this.getTasks();
     const newTask: Task = {
       id: `t${Date.now()}-${Math.random()}`,
-      dealId: task.dealId!,
+      dealId: task.dealId,
+      offerId: task.offerId,
       title: task.title || 'New Task',
       status: task.status || 'To Do',
       priority: task.priority || 'Normal',
@@ -581,11 +660,18 @@ class DataService {
     return updates.filter(u => u.dealId === dealId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
+  async getOfferUpdates(offerId: string): Promise<Update[]> {
+    await delay(200);
+    const updates = this.load<Update[]>('updates', SEED_UPDATES);
+    return updates.filter(u => u.offerId === offerId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }
+
   async addUpdate(update: Partial<Update>): Promise<Update> {
     const updates = this.load<Update[]>('updates', SEED_UPDATES);
     const newUpdate: Update = {
       id: `u${Date.now()}`,
-      dealId: update.dealId!,
+      dealId: update.dealId,
+      offerId: update.offerId,
       content: update.content!,
       tag: update.tag || 'Note',
       userId: update.userId!,
@@ -601,6 +687,28 @@ class DataService {
   async getGoogleEvents(): Promise<any[]> {
     await delay(500);
     return MOCK_GOOGLE_EVENTS;
+  }
+
+  // --- Global Search ---
+  async globalSearch(query: string): Promise<{ deals: Deal[], contacts: Contact[], offers: Offer[] }> {
+    const q = query.toLowerCase();
+    
+    const deals = (await this.getDeals()).filter(d => 
+        d.address.toLowerCase().includes(q) || 
+        d.clientName.toLowerCase().includes(q)
+    ).slice(0, 3);
+
+    const contacts = (await this.getContacts()).filter(c => 
+        c.name.toLowerCase().includes(q) || 
+        c.email.toLowerCase().includes(q)
+    ).slice(0, 3);
+
+    const offers = (await this.getAllOffers()).filter(o => 
+        o.clientName.toLowerCase().includes(q) || 
+        (o.propertyAddress && o.propertyAddress.toLowerCase().includes(q))
+    ).slice(0, 3);
+
+    return { deals, contacts, offers };
   }
 }
 

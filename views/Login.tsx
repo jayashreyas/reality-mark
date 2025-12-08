@@ -43,7 +43,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <input
               type="email"
               id="email"
-              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow"
+              className="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 outline-none transition-shadow bg-white text-gray-900"
               placeholder="name@realitymark.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -57,7 +57,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </div>
           )}
           
-          <Button className="w-full" size="lg">Sign In</Button>
+          <Button className="w-full" size="lg" type="submit">Sign In</Button>
         </form>
 
         <div className="mt-8 pt-6 border-t border-gray-100 text-center text-xs text-gray-400">

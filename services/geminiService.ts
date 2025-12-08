@@ -1,10 +1,18 @@
+
 import { GoogleGenAI } from "@google/genai";
-import { Update } from "../types";
+import { Update, CrmData } from "../types";
 
 const API_KEY = process.env.API_KEY || '';
 
 // Initialize generically. If key is missing, methods will throw/fail gracefully in the UI.
-const ai = new GoogleGenAI({ apiKey: API_KEY });
+let ai: GoogleGenAI | null = null;
+try {
+    if (API_KEY) {
+        ai = new GoogleGenAI({ apiKey: API_KEY });
+    }
+} catch (e) {
+    console.error("Failed to initialize GoogleGenAI", e);
+}
 
 export const generateListingDescription = async (
   address: string,
@@ -12,7 +20,7 @@ export const generateListingDescription = async (
   features: string,
   tone: string
 ): Promise<string> => {
-  if (!API_KEY) {
+  if (!ai) {
     throw new Error("Missing API Key");
   }
 
@@ -41,8 +49,8 @@ export const generateListingDescription = async (
 };
 
 export const summarizeDealActivity = async (updates: Update[]): Promise<{ summary: string; nextSteps: string[] }> => {
-  if (!API_KEY) {
-    throw new Error("Missing API Key");
+  if (!ai) {
+    return { summary: "API Key Missing. Cannot analyze.", nextSteps: [] };
   }
 
   if (updates.length === 0) {
@@ -87,5 +95,65 @@ export const summarizeDealActivity = async (updates: Update[]): Promise<{ summar
   } catch (error) {
     console.error("Gemini Analysis Error:", error);
     return { summary: "Could not analyze activity.", nextSteps: [] };
+  }
+};
+
+export const queryCRM = async (query: string, data: CrmData): Promise<string> => {
+  if (!ai) {
+    return "I'm sorry, but I don't have an API key configured to answer your questions.";
+  }
+
+  // Optimize context to fit typical context windows and reduce noise
+  const context = {
+    currentUser: data.user.displayName,
+    deals: data.deals.map(d => ({
+        address: d.address,
+        client: d.clientName,
+        status: d.status,
+        price: d.price,
+        type: d.type
+    })),
+    myTasks: data.tasks.filter(t => t.assignedToName === data.user.displayName).map(t => ({
+        title: t.title,
+        dueDate: t.dueDate,
+        priority: t.priority,
+        status: t.status
+    })),
+    activeOffers: data.offers.filter(o => o.status === 'Pending' || o.status === 'Countered').map(o => ({
+        property: o.propertyAddress,
+        buyer: o.clientName,
+        amount: o.amount,
+        status: o.status
+    })),
+    recentContacts: data.contacts.slice(0, 10).map(c => ({
+        name: c.name,
+        type: c.type,
+        notes: c.notes
+    }))
+  };
+
+  const prompt = `
+    You are Nexus AI, an intelligent assistant for the "Reality Mark" Real Estate CRM.
+    The current user is ${context.currentUser}.
+    
+    Here is the current snapshot of the CRM data (JSON format):
+    ${JSON.stringify(context, null, 2)}
+    
+    User Query: "${query}"
+    
+    Answer the user's question based strictly on the data provided above. 
+    If the answer is not in the data, say you don't know. 
+    Be concise, professional, and helpful. Use formatting (like bullets) if listing items.
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+    });
+    return response.text || "I couldn't process that request.";
+  } catch (error) {
+    console.error("Gemini CRM Query Error:", error);
+    return "I encountered an error while analyzing the data.";
   }
 };

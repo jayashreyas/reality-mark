@@ -1,12 +1,15 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Contact, ContactType } from '../types';
 import { Card, Button, Modal, InputGroup, Badge } from '../components/Shared';
 import { Users, Search, Filter, Plus, Phone, Mail, Edit2, Trash2, FileSpreadsheet, Download } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
-export const Contacts: React.FC = () => {
-  const [contacts, setContacts] = useState<Contact[]>([]);
+interface ContactsProps {
+  contacts: Contact[];
+  onRefresh: () => void;
+}
+
+export const Contacts: React.FC<ContactsProps> = ({ contacts, onRefresh }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('All');
   
@@ -27,15 +30,6 @@ export const Contacts: React.FC = () => {
   const [phone, setPhone] = useState('');
   const [type, setType] = useState<ContactType>('Lead');
   const [notes, setNotes] = useState('');
-
-  useEffect(() => {
-    loadContacts();
-  }, []);
-
-  const loadContacts = async () => {
-    const data = await dataService.getContacts();
-    setContacts(data);
-  };
 
   const handleOpenModal = (contact?: Contact) => {
     if (contact) {
@@ -82,13 +76,13 @@ export const Contacts: React.FC = () => {
     }
     
     setIsModalOpen(false);
-    loadContacts();
+    onRefresh();
   };
 
   const handleDelete = async (id: string) => {
     if (window.confirm('Delete this contact?')) {
       await dataService.deleteContact(id);
-      loadContacts();
+      onRefresh();
     }
   };
 
@@ -286,7 +280,7 @@ export const Contacts: React.FC = () => {
 
       if (newContactsBatch.length > 0) {
         await dataService.addContacts(newContactsBatch);
-        await loadContacts();
+        onRefresh();
         alert(`Import Complete!\n• Added: ${newContactsBatch.length} contacts\n• Duplicates Ignored: ${duplicateCount}\n• Invalid Rows Skipped: ${skippedCount}`);
       } else {
         alert(
@@ -360,7 +354,7 @@ export const Contacts: React.FC = () => {
             <input 
               type="text" 
               placeholder="Search name or email..." 
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -454,18 +448,18 @@ export const Contacts: React.FC = () => {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingId ? 'Edit Contact' : 'Add New Contact'}>
         <div className="space-y-4">
            <InputGroup label="Full Name">
-             <input className="w-full border border-gray-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500" value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" />
+             <input className="w-full border border-gray-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900" value={name} onChange={e => setName(e.target.value)} placeholder="Jane Doe" />
            </InputGroup>
            <div className="grid grid-cols-2 gap-4">
               <InputGroup label="Email">
-                <input className="w-full border border-gray-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" />
+                <input className="w-full border border-gray-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900" value={email} onChange={e => setEmail(e.target.value)} placeholder="email@example.com" />
               </InputGroup>
               <InputGroup label="Phone">
-                <input className="w-full border border-gray-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" />
+                <input className="w-full border border-gray-300 rounded p-2 outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(555) 123-4567" />
               </InputGroup>
            </div>
            <InputGroup label="Type">
-             <select className="w-full border border-gray-300 rounded p-2 bg-white" value={type} onChange={e => setType(e.target.value as ContactType)}>
+             <select className="w-full border border-gray-300 rounded p-2 bg-white text-gray-900" value={type} onChange={e => setType(e.target.value as ContactType)}>
                <option value="Lead">Lead</option>
                <option value="Buyer">Buyer</option>
                <option value="Seller">Seller</option>
@@ -474,7 +468,7 @@ export const Contacts: React.FC = () => {
              </select>
            </InputGroup>
            <InputGroup label="Notes">
-             <textarea className="w-full border border-gray-300 rounded p-2 h-20 outline-none focus:ring-2 focus:ring-indigo-500" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Key requirements, budget, etc." />
+             <textarea className="w-full border border-gray-300 rounded p-2 h-20 outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Key requirements, budget, etc." />
            </InputGroup>
            <Button className="w-full" onClick={handleSave}>{editingId ? 'Save Changes' : 'Create Contact'}</Button>
         </div>

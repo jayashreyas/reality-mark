@@ -137,7 +137,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ currentUser, tea
         <div className="space-y-4">
           <InputGroup label="Full Name">
             <input 
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
               placeholder="e.g. Jane Doe"
               value={newName}
               onChange={e => setNewName(e.target.value)}
@@ -146,7 +146,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ currentUser, tea
           <div className="grid grid-cols-2 gap-4">
             <InputGroup label="Email Address">
                 <input 
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
                 placeholder="jane@realitymark.com"
                 value={newEmail}
                 onChange={e => setNewEmail(e.target.value)}
@@ -154,7 +154,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ currentUser, tea
             </InputGroup>
             <InputGroup label="Phone Number">
                 <input 
-                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
                 placeholder="(555) 123-4567"
                 value={newPhone}
                 onChange={e => setNewPhone(e.target.value)}
@@ -172,7 +172,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ currentUser, tea
                    onChange={() => setNewRole('agent')}
                    className="text-indigo-600 focus:ring-indigo-500"
                  />
-                 <span>Agent</span>
+                 <span className="text-gray-900">Agent</span>
                </label>
                <label className="flex items-center gap-2 cursor-pointer">
                  <input 
@@ -183,7 +183,7 @@ export const TeamManagement: React.FC<TeamManagementProps> = ({ currentUser, tea
                    onChange={() => setNewRole('admin')}
                    className="text-indigo-600 focus:ring-indigo-500"
                  />
-                 <span>Admin</span>
+                 <span className="text-gray-900">Admin</span>
                </label>
              </div>
           </InputGroup>

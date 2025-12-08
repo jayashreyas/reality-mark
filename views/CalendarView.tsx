@@ -400,7 +400,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
         <div className="space-y-4">
           <InputGroup label="Task Title">
             <input 
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
               value={formTitle}
               onChange={e => setFormTitle(e.target.value)}
               placeholder="e.g. Call Client"
@@ -409,7 +409,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
 
           <InputGroup label="Associated Deal">
             <select 
-              className="w-full border border-gray-300 rounded-md p-2 bg-white"
+              className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
               value={formDealId}
               onChange={e => setFormDealId(e.target.value)}
               disabled={deals.length === 0}
@@ -425,14 +425,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
              <InputGroup label="Due Date">
                 <input 
                   type="date"
-                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
                   value={formDate}
                   onChange={e => setFormDate(e.target.value)}
                 />
               </InputGroup>
               <InputGroup label="Assignee">
                 <select 
-                  className="w-full border border-gray-300 rounded-md p-2 bg-white"
+                  className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
                   value={formAssignee}
                   onChange={e => setFormAssignee(e.target.value)}
                 >
@@ -446,7 +446,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
           <div className="grid grid-cols-2 gap-4">
             <InputGroup label="Priority">
                 <select 
-                  className="w-full border border-gray-300 rounded-md p-2 bg-white"
+                  className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
                   value={formPriority}
                   onChange={e => setFormPriority(e.target.value as TaskPriority)}
                 >
@@ -457,7 +457,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
               </InputGroup>
               <InputGroup label="Status">
                 <select 
-                  className="w-full border border-gray-300 rounded-md p-2 bg-white"
+                  className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
                   value={formStatus}
                   onChange={e => setFormStatus(e.target.value as TaskStatus)}
                 >

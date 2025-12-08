@@ -12,9 +12,10 @@ import { Contacts } from './views/Contacts';
 import { Login } from './views/Login';
 import { Profile } from './views/Profile';
 import { OffersList } from './views/OffersList';
-import { AppState, Deal, Task, Update, User, Offer } from './types';
+import { AppState, Deal, Task, Update, User, Offer, Contact } from './types';
 import { dataService } from './services/dataService';
 import { Modal, InputGroup, Button } from './components/Shared';
+import { AIChatbot } from './components/AIChatbot';
 
 export default function App() {
   const [view, setView] = useState<AppState['view']>('dashboard');
@@ -25,6 +26,7 @@ export default function App() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   
   // Specific Data for views
   const [allOffers, setAllOffers] = useState<Offer[]>([]);
@@ -57,11 +59,13 @@ export default function App() {
     const t = await dataService.getTasks();
     const tm = dataService.getTeamMembers();
     const offers = await dataService.getAllOffers();
+    const c = await dataService.getContacts();
     
     setDeals(d);
     setTasks(t);
     setTeamMembers(tm);
     setAllOffers(offers);
+    setContacts(c);
 
     if (selectedDealId) {
       const u = await dataService.getUpdates(selectedDealId);
@@ -173,7 +177,12 @@ export default function App() {
         />
       )}
       
-      {view === 'contacts' && <Contacts />}
+      {view === 'contacts' && (
+        <Contacts 
+          contacts={contacts}
+          onRefresh={refreshData}
+        />
+      )}
 
       {view === 'mytasks' && (
         <MyTasks 
@@ -274,6 +283,18 @@ export default function App() {
           </div>
         </div>
       </Modal>
+
+      {/* AI Chatbot Overlay */}
+      <AIChatbot 
+        crmData={{
+           deals,
+           tasks,
+           offers: allOffers,
+           contacts,
+           teamMembers,
+           user: currentUser
+        }}
+      />
     </Layout>
   );
 }

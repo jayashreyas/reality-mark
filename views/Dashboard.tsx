@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Deal, Task, User, AppState, Reminder } from '../types';
 import { Card, Badge, Button } from '../components/Shared';
@@ -173,7 +172,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavi
             <Card className="p-4 space-y-3">
                <div className="flex gap-2">
                  <input 
-                    className="flex-1 text-sm border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="flex-1 text-sm border border-gray-200 rounded px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white text-gray-900"
                     placeholder="e.g. Call Mom, Buy Milk"
                     value={newReminder}
                     onChange={(e) => setNewReminder(e.target.value)}
