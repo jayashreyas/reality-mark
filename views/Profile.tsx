@@ -51,7 +51,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
                <div className="relative">
                  <UserIcon size={18} className="absolute left-3 top-2.5 text-gray-400" />
                  <input 
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
                     value={displayName}
                     onChange={e => setDisplayName(e.target.value)}
                  />
@@ -62,7 +62,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
                <div className="relative">
                  <Mail size={18} className="absolute left-3 top-2.5 text-gray-400" />
                  <input 
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
                  />
@@ -73,7 +73,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
                <div className="relative">
                  <Phone size={18} className="absolute left-3 top-2.5 text-gray-400" />
                  <input 
-                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className="w-full border border-gray-300 rounded-md pl-10 pr-3 py-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
                     value={phone}
                     onChange={e => setPhone(e.target.value)}
                  />

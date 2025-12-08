@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Deal, Task, User, AppState, Reminder } from '../types';
+import { Deal, Task, User, AppState, Reminder, Offer } from '../types';
 import { Card, Badge, Button } from '../components/Shared';
-import { ArrowRight, Briefcase, CheckCircle, Clock, TrendingUp, Bell, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Briefcase, Clock, Bell, Plus, Trash2, DollarSign } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface DashboardProps {
@@ -10,9 +10,11 @@ interface DashboardProps {
   user: User;
   onNavigate: (view: AppState['view']) => void;
   onOpenDeal: (id: string) => void;
+  offers: Offer[];
+  onCreateDeal: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavigate, onOpenDeal }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavigate, onOpenDeal, offers, onCreateDeal }) => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [newReminder, setNewReminder] = useState('');
 
@@ -56,18 +58,27 @@ export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavi
 
   return (
     <div className="p-8 overflow-y-auto h-full space-y-8">
-      <header className="mb-8">
-        <h2 className="text-3xl font-bold text-gray-900">Welcome back, {user.displayName.split(' ')[0]} 👋</h2>
-        <p className="text-gray-500 mt-2">Here's what's happening in your team today.</p>
+      <header className="mb-8 flex justify-between items-end">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-900">Welcome back, {user.displayName.split(' ')[0]} 👋</h2>
+          <p className="text-gray-500 mt-2">Here's what's happening in your team today.</p>
+        </div>
+        <Button onClick={onCreateDeal} icon={<Plus size={18} />}>New Deal</Button>
       </header>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard 
           title="Active Deals" 
           value={activeDeals.length} 
           icon={<Briefcase size={24} />} 
           color="bg-blue-500" 
+        />
+        <StatCard 
+          title="Active Offers" 
+          value={offers.filter(o => o.status === 'Pending' || o.status === 'Countered').length} 
+          icon={<DollarSign size={24} />} 
+          color="bg-green-500" 
         />
         <StatCard 
           title="My Open Tasks" 
@@ -140,16 +151,18 @@ export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavi
                 const deal = deals.find(d => d.id === task.dealId);
                 return (
                   <Card key={task.id} className="hover:shadow-md transition-shadow cursor-pointer flex justify-between items-center p-4">
-                    <div onClick={() => onOpenDeal(task.dealId)}>
+                    <div onClick={() => onOpenDeal(task.dealId || '')}>
                       <div className="flex items-center gap-2 mb-1">
                         {task.priority === 'High' && <span className="w-2 h-2 rounded-full bg-red-500" />}
                         <span className="font-semibold text-gray-900">{task.title}</span>
                       </div>
-                      <p className="text-xs text-gray-500">{deal?.address} • Due {new Date(task.dueDate).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">{deal?.address || 'General Task'} • Due {new Date(task.dueDate).toLocaleDateString()}</p>
                     </div>
-                    <Button variant="outline" size="sm" icon={<ArrowRight size={14} />} onClick={() => onOpenDeal(task.dealId)}>
-                      View
-                    </Button>
+                    {task.dealId && (
+                      <Button variant="outline" size="sm" icon={<ArrowRight size={14} />} onClick={() => onOpenDeal(task.dealId!)}>
+                        View
+                      </Button>
+                    )}
                   </Card>
                 );
               })}

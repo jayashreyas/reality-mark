@@ -1,5 +1,5 @@
 
-import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer, Notification } from '../types';
+import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer, Notification, CrmData } from '../types';
 
 // Seed data
 const SEED_TEAM_MEMBERS: User[] = [
@@ -709,6 +709,29 @@ class DataService {
     ).slice(0, 3);
 
     return { deals, contacts, offers };
+  }
+
+  // --- AI Context Helper ---
+  async getCRMDataSnapshot(): Promise<CrmData> {
+    const deals = await this.getDeals();
+    const tasks = await this.getTasks();
+    const offers = await this.getAllOffers();
+    const contacts = await this.getContacts();
+    const teamMembers = this.getTeamMembers();
+    const user = this.getUser();
+
+    if (!user) {
+        throw new Error("User not authenticated for snapshot");
+    }
+
+    return {
+      deals,
+      tasks,
+      offers,
+      contacts,
+      teamMembers,
+      user
+    };
   }
 }
 

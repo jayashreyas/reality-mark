@@ -100,50 +100,54 @@ export const summarizeDealActivity = async (updates: Update[]): Promise<{ summar
 
 export const queryCRM = async (query: string, data: CrmData): Promise<string> => {
   if (!ai) {
-    return "I'm sorry, but I don't have an API key configured to answer your questions.";
+    return "I need an API Key to answer that. Please check your configuration.";
   }
 
-  // Optimize context to fit typical context windows and reduce noise
+  // Create a simplified context to send to the model
   const context = {
-    currentUser: data.user.displayName,
-    deals: data.deals.map(d => ({
-        address: d.address,
-        client: d.clientName,
-        status: d.status,
-        price: d.price,
-        type: d.type
+    user: { name: data.user.displayName, role: data.user.role },
+    deals: data.deals.map(d => ({ 
+        id: d.id, 
+        address: d.address, 
+        client: d.clientName, 
+        status: d.status, 
+        price: d.price, 
+        type: d.type 
     })),
-    myTasks: data.tasks.filter(t => t.assignedToName === data.user.displayName).map(t => ({
+    tasks: data.tasks.filter(t => t.status !== 'Completed').map(t => ({
         title: t.title,
-        dueDate: t.dueDate,
+        status: t.status,
         priority: t.priority,
-        status: t.status
+        due: t.dueDate,
+        assignedTo: t.assignedToName
     })),
-    activeOffers: data.offers.filter(o => o.status === 'Pending' || o.status === 'Countered').map(o => ({
+    offers: data.offers.map(o => ({
         property: o.propertyAddress,
         buyer: o.clientName,
         amount: o.amount,
         status: o.status
     })),
-    recentContacts: data.contacts.slice(0, 10).map(c => ({
+    contacts: data.contacts.slice(0, 20).map(c => ({ // Limit contacts
         name: c.name,
         type: c.type,
-        notes: c.notes
+        email: c.email
     }))
   };
 
   const prompt = `
-    You are Nexus AI, an intelligent assistant for the "Reality Mark" Real Estate CRM.
-    The current user is ${context.currentUser}.
+    You are Nexus AI, a helpful assistant for the Reality Mark Real Estate CRM.
     
-    Here is the current snapshot of the CRM data (JSON format):
+    Context Data:
     ${JSON.stringify(context, null, 2)}
     
     User Query: "${query}"
     
-    Answer the user's question based strictly on the data provided above. 
-    If the answer is not in the data, say you don't know. 
-    Be concise, professional, and helpful. Use formatting (like bullets) if listing items.
+    Instructions:
+    1. Answer the user's question based strictly on the provided Context Data.
+    2. If the user asks about "my tasks" or "my deals", filter by the current user (${context.user.name}).
+    3. Keep the response concise, professional, and helpful.
+    4. If the information is not in the context, say "I don't have that information right now."
+    5. Do not invent data.
   `;
 
   try {
@@ -151,9 +155,9 @@ export const queryCRM = async (query: string, data: CrmData): Promise<string> =>
       model: 'gemini-2.5-flash',
       contents: prompt,
     });
-    return response.text || "I couldn't process that request.";
+    return response.text || "I couldn't generate an answer.";
   } catch (error) {
-    console.error("Gemini CRM Query Error:", error);
-    return "I encountered an error while analyzing the data.";
+    console.error("Gemini Query Error:", error);
+    return "Sorry, I encountered an error while processing your request.";
   }
 };

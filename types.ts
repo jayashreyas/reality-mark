@@ -157,6 +157,6 @@ export interface CrmData {
 
 export interface AppState {
   currentUser: User | null;
-  view: 'dashboard' | 'deals' | 'offers' | 'mytasks' | 'calendar' | 'deal-room' | 'team' | 'messages' | 'contacts' | 'profile';
+  view: 'dashboard' | 'deals' | 'offers' | 'mytasks' | 'calendar' | 'team' | 'messages' | 'contacts' | 'profile';
   selectedDealId: string | null;
 }

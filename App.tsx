@@ -5,7 +5,7 @@ import { Dashboard } from './views/Dashboard';
 import { DealList } from './views/DealList';
 import { MyTasks } from './views/MyTasks';
 import { CalendarView } from './views/CalendarView';
-import { DealRoom } from './views/DealRoom';
+import { DealRoomModal } from './views/DealRoom';
 import { TeamManagement } from './views/TeamManagement';
 import { Chat } from './views/Chat';
 import { Contacts } from './views/Contacts';
@@ -15,7 +15,6 @@ import { OffersList } from './views/OffersList';
 import { AppState, Deal, Task, Update, User, Offer, Contact } from './types';
 import { dataService } from './services/dataService';
 import { Modal, InputGroup, Button } from './components/Shared';
-import { AIChatbot } from './components/AIChatbot';
 
 export default function App() {
   const [view, setView] = useState<AppState['view']>('dashboard');
@@ -90,12 +89,15 @@ export default function App() {
 
   const handleNavigate = (newView: AppState['view']) => {
     setView(newView);
-    if (newView !== 'deal-room') setSelectedDealId(null);
   };
 
   const handleOpenDeal = (id: string) => {
     setSelectedDealId(id);
-    setView('deal-room');
+    // Don't change view, just set ID to trigger modal
+  };
+
+  const handleCloseDealModal = () => {
+    setSelectedDealId(null);
   };
 
   const handleLogout = () => {
@@ -155,6 +157,8 @@ export default function App() {
           user={currentUser} 
           onNavigate={handleNavigate}
           onOpenDeal={handleOpenDeal} 
+          offers={allOffers}
+          onCreateDeal={() => setIsNewDealModalOpen(true)}
         />
       )}
       
@@ -215,7 +219,6 @@ export default function App() {
           teamMembers={teamMembers}
           onTeamUpdate={(updatedTeam) => {
             setTeamMembers(updatedTeam);
-            // If current user info was updated (unlikely in this view but good practice)
             const me = updatedTeam.find(u => u.id === currentUser.id);
             if (me) setCurrentUser(me);
           }}
@@ -232,15 +235,17 @@ export default function App() {
         />
       )}
 
-      {view === 'deal-room' && selectedDeal && (
-        <DealRoom
+      {/* Global Deal Modal */}
+      {selectedDeal && (
+        <DealRoomModal
+          isOpen={!!selectedDealId}
+          onClose={handleCloseDealModal}
           deal={selectedDeal}
           user={currentUser}
           teamMembers={teamMembers}
           tasks={dealTasks}
           updates={activeUpdates}
           offers={activeOffers}
-          onBack={() => handleNavigate('deals')}
           onRefreshData={refreshData}
         />
       )}
@@ -254,7 +259,7 @@ export default function App() {
         <div className="space-y-4">
           <InputGroup label="Client Name">
             <input 
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
               value={newDealClient}
               onChange={e => setNewDealClient(e.target.value)}
               placeholder="e.g. John Doe"
@@ -262,7 +267,7 @@ export default function App() {
           </InputGroup>
           <InputGroup label="Property Address">
             <input 
-              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+              className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
               value={newDealAddress}
               onChange={e => setNewDealAddress(e.target.value)}
               placeholder="e.g. 123 Main St"
@@ -270,7 +275,7 @@ export default function App() {
           </InputGroup>
           <InputGroup label="Deal Type">
             <select 
-              className="w-full border border-gray-300 rounded-md p-2 bg-white"
+              className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900"
               value={newDealType}
               onChange={e => setNewDealType(e.target.value)}
             >
@@ -283,18 +288,6 @@ export default function App() {
           </div>
         </div>
       </Modal>
-
-      {/* AI Chatbot Overlay */}
-      <AIChatbot 
-        crmData={{
-           deals,
-           tasks,
-           offers: allOffers,
-           contacts,
-           teamMembers,
-           user: currentUser
-        }}
-      />
     </Layout>
   );
 }
