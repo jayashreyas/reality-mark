@@ -135,62 +135,93 @@ export const Contacts: React.FC = () => {
       const newContactsBatch: Omit<Contact, 'id' | 'lastContacted'>[] = [];
       let duplicateCount = 0;
 
-      // Determine start index: Skip header if "email" is found in first line (case insensitive)
-      const startIndex = lines[0]?.toLowerCase().includes('email') ? 1 : 0;
+      if (lines.length < 2) {
+        throw new Error("File is empty or too short");
+      }
 
-      for (let i = startIndex; i < lines.length; i++) {
+      // --- Smart Column Detection ---
+      const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+      
+      const findColIndex = (keywords: string[]) => {
+        return headers.findIndex(h => keywords.some(k => h.includes(k)));
+      };
+
+      // Map keywords to indices (supports Google Contacts & Generic CSVs)
+      let idxName = findColIndex(['name', 'firstname', 'givenname', 'displayname']);
+      let idxEmail = findColIndex(['email', 'e-mail', 'mail']);
+      let idxPhone = findColIndex(['phone', 'mobile', 'cell']);
+      let idxType = findColIndex(['type', 'group', 'category']);
+      let idxNotes = findColIndex(['notes', 'description', 'biography', 'remark']);
+
+      // Fallback: If headers seem missing/wrong (no name OR no email found), assume standard template order: 
+      // 0: Name, 1: Email, 2: Phone, 3: Type, 4: Notes
+      if (idxName === -1 || idxEmail === -1) {
+         console.warn("Could not auto-detect headers, falling back to default indices.");
+         idxName = 0;
+         idxEmail = 1;
+         idxPhone = 2;
+         idxType = 3;
+         idxNotes = 4;
+      }
+
+      for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
 
         const cols = parseCSVLine(line);
 
-        if (cols.length >= 2) {
-           const cName = cols[0];
-           const cEmail = cols[1];
-           const cPhone = cols[2] || '';
-           const cTypeRaw = cols[3] || 'Lead';
-           const cNotes = cols.slice(4).join(','); // Join remaining cols as notes
+        // Extract data using found indices
+        const cName = cols[idxName] || '';
+        // Combine names if split (common in Google CSV: Given Name, Family Name)
+        // (Simple version: just take the main name column found)
+        
+        const cEmail = cols[idxEmail] || '';
+        const cPhone = cols[idxPhone] || '';
+        const cTypeRaw = cols[idxType] || 'Lead';
+        const cNotes = cols[idxNotes] || '';
 
-           // Basic Validation
-           if (cName && cEmail && cEmail.includes('@')) {
+        // Basic Validation: Needs at least a name or an email
+        if ((cName || cEmail)) {
              // Check against current list to avoid obvious dupes
-             const existsInCurrent = contacts.find(existing => existing.email.toLowerCase() === cEmail.toLowerCase());
-             // Also check against the batch we are building to avoid duplicates within the CSV itself
-             const existsInBatch = newContactsBatch.find(batch => batch.email.toLowerCase() === cEmail.toLowerCase());
+             const existsInCurrent = contacts.find(existing => existing.email.toLowerCase() === cEmail.toLowerCase() && cEmail !== '');
+             const existsInBatch = newContactsBatch.find(batch => batch.email.toLowerCase() === cEmail.toLowerCase() && cEmail !== '');
              
              if (!existsInCurrent && !existsInBatch) {
                 const validTypes = ['Buyer', 'Seller', 'Lead', 'Vendor'];
-                // Default to 'Lead' if type is invalid, normalize case
-                const normalizedType = cTypeRaw.charAt(0).toUpperCase() + cTypeRaw.slice(1).toLowerCase();
-                const finalType = validTypes.includes(normalizedType) ? normalizedType as ContactType : 'Lead';
-
+                // Normalize Type
+                let normalizedType: ContactType = 'Lead';
+                const lowerType = cTypeRaw.toLowerCase();
+                
+                if (lowerType.includes('buyer')) normalizedType = 'Buyer';
+                else if (lowerType.includes('seller')) normalizedType = 'Seller';
+                else if (lowerType.includes('vendor')) normalizedType = 'Vendor';
+                
                 newContactsBatch.push({
-                  name: cName,
+                  name: cName || cEmail.split('@')[0], // Fallback name
                   email: cEmail,
                   phone: cPhone,
-                  type: finalType,
+                  type: normalizedType,
                   notes: cNotes
                 });
              } else {
                duplicateCount++;
              }
-           }
         }
       }
 
       if (newContactsBatch.length > 0) {
         await dataService.addContacts(newContactsBatch);
         await loadContacts();
-        alert(`Import Complete!\n• Added: ${newContactsBatch.length}\n• Skipped (Duplicates): ${duplicateCount}`);
+        alert(`Import Complete!\n• Added: ${newContactsBatch.length} contacts\n• Skipped (Duplicates): ${duplicateCount}`);
       } else {
         alert(duplicateCount > 0 
           ? `All ${duplicateCount} contacts in this file were duplicates.` 
-          : "No valid contacts found in file.");
+          : "No valid contacts found. Please ensure the CSV has 'Name' and 'Email' columns.");
       }
 
     } catch (error) {
       console.error("Import failed", error);
-      alert("Failed to parse the CSV file. Please make sure it follows the template format.");
+      alert("Failed to parse the CSV file. Please make sure it is a valid CSV.");
     } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
