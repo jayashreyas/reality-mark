@@ -11,7 +11,8 @@ import { Chat } from './views/Chat';
 import { Contacts } from './views/Contacts';
 import { Login } from './views/Login';
 import { Profile } from './views/Profile';
-import { AppState, Deal, Task, Update, User } from './types';
+import { OffersList } from './views/OffersList';
+import { AppState, Deal, Task, Update, User, Offer } from './types';
 import { dataService } from './services/dataService';
 import { Modal, InputGroup, Button } from './components/Shared';
 
@@ -24,7 +25,11 @@ export default function App() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
+  
+  // Specific Data for views
+  const [allOffers, setAllOffers] = useState<Offer[]>([]);
   const [activeUpdates, setActiveUpdates] = useState<Update[]>([]);
+  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
   
   // UI State
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
@@ -51,19 +56,31 @@ export default function App() {
     const d = await dataService.getDeals();
     const t = await dataService.getTasks();
     const tm = dataService.getTeamMembers();
+    const offers = await dataService.getAllOffers();
+    
     setDeals(d);
     setTasks(t);
     setTeamMembers(tm);
+    setAllOffers(offers);
+
     if (selectedDealId) {
       const u = await dataService.getUpdates(selectedDealId);
+      const o = await dataService.getOffers(selectedDealId);
       setActiveUpdates(u);
+      setActiveOffers(o);
     }
     setIsLoading(false);
   };
 
   useEffect(() => {
     if (selectedDealId && currentUser) {
-      dataService.getUpdates(selectedDealId).then(setActiveUpdates);
+      Promise.all([
+        dataService.getUpdates(selectedDealId),
+        dataService.getOffers(selectedDealId)
+      ]).then(([u, o]) => {
+        setActiveUpdates(u);
+        setActiveOffers(o);
+      });
     }
   }, [selectedDealId, currentUser]);
 
@@ -146,6 +163,16 @@ export default function App() {
         />
       )}
       
+      {view === 'offers' && (
+        <OffersList
+          offers={allOffers}
+          deals={deals}
+          currentUser={currentUser}
+          onRefreshData={refreshData}
+          onOpenDeal={handleOpenDeal}
+        />
+      )}
+      
       {view === 'contacts' && <Contacts />}
 
       {view === 'mytasks' && (
@@ -203,6 +230,7 @@ export default function App() {
           teamMembers={teamMembers}
           tasks={dealTasks}
           updates={activeUpdates}
+          offers={activeOffers}
           onBack={() => handleNavigate('deals')}
           onRefreshData={refreshData}
         />

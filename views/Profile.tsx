@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { Card, Button, InputGroup } from '../components/Shared';
-import { User as UserIcon, Mail, Shield, Save } from 'lucide-react';
+import { User as UserIcon, Mail, Shield, Save, Phone } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface ProfileProps {
@@ -13,6 +13,7 @@ interface ProfileProps {
 export const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
   const [displayName, setDisplayName] = useState(user.displayName);
   const [email, setEmail] = useState(user.email || '');
+  const [phone, setPhone] = useState(user.phone || '');
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -32,6 +33,7 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
       ...user,
       displayName,
       email,
+      phone,
       initials
     };
 
@@ -81,18 +83,33 @@ export const Profile: React.FC<ProfileProps> = ({ user, onUpdate }) => {
               </div>
             </InputGroup>
 
-            <InputGroup label="Email Address">
-              <div className="relative">
-                <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
-                <input 
-                  type="email"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
-                />
-              </div>
-            </InputGroup>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <InputGroup label="Email Address">
+                <div className="relative">
+                    <Mail className="absolute left-3 top-3 text-gray-400" size={18} />
+                    <input 
+                    type="email"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@company.com"
+                    />
+                </div>
+                </InputGroup>
+
+                <InputGroup label="Phone Number">
+                <div className="relative">
+                    <Phone className="absolute left-3 top-3 text-gray-400" size={18} />
+                    <input 
+                    type="tel"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="(555) 123-4567"
+                    />
+                </div>
+                </InputGroup>
+            </div>
 
             <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
               <h4 className="font-semibold text-gray-700 text-sm mb-2">Account Status</h4>

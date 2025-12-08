@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Deal, Task, Update, User, TaskStatus, DealDocument } from '../types';
+import { Deal, Task, Update, User, TaskStatus, DealDocument, Offer, OfferStatus } from '../types';
 import { Card, Badge, Button, Modal, InputGroup } from '../components/Shared';
-import { ArrowLeft, MoreHorizontal, Plus, Send, Phone, Mail, FileText, Sparkles, AlertCircle, User as UserIcon, DollarSign, File, Upload, Download, Table as TableIcon, Presentation, ChevronDown } from 'lucide-react';
+import { ArrowLeft, MoreHorizontal, Plus, Send, Phone, Mail, FileText, Sparkles, AlertCircle, User as UserIcon, DollarSign, File, Upload, Download, Table as TableIcon, Presentation, ChevronDown, Trash2, Edit2, Calendar } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { generateListingDescription, summarizeDealActivity } from '../services/geminiService';
 
@@ -12,12 +12,13 @@ interface DealRoomProps {
   teamMembers: User[];
   tasks: Task[];
   updates: Update[];
+  offers: Offer[];
   onBack: () => void;
   onRefreshData: () => void;
 }
 
-export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tasks, updates, onBack, onRefreshData }) => {
-  const [activeTab, setActiveTab] = useState<'kanban' | 'activity' | 'documents'>('kanban');
+export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tasks, updates, offers, onBack, onRefreshData }) => {
+  const [activeTab, setActiveTab] = useState<'kanban' | 'activity' | 'documents' | 'offers'>('kanban');
   const [isListingModalOpen, setIsListingModalOpen] = useState(false);
   
   // Kanban State
@@ -48,6 +49,13 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
   const [googleFileName, setGoogleFileName] = useState('');
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
 
+  // Offers State
+  const [isOfferModalOpen, setIsOfferModalOpen] = useState(false);
+  const [currentOffer, setCurrentOffer] = useState<Offer | null>(null);
+  const [offerClient, setOfferClient] = useState('');
+  const [offerAmount, setOfferAmount] = useState<number>(0);
+  const [offerStatus, setOfferStatus] = useState<OfferStatus>('Pending');
+  const [offerNotes, setOfferNotes] = useState('');
 
   useEffect(() => {
     if (activeTab === 'activity' && scrollRef.current) {
@@ -60,15 +68,21 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
   const handleAddTask = async () => {
     if (!newTaskTitle.trim()) return;
     setIsAddingTask(true);
+    
+    // Default to current user if state is empty, or "Unassigned" fallback
+    const assignee = newTaskAssignee || user.displayName || 'Unassigned';
+
     await dataService.createTask({
       dealId: deal.id,
       title: newTaskTitle,
-      assignedToName: newTaskAssignee,
+      assignedToName: assignee,
       priority: 'Normal',
       status: 'To Do',
       dueDate: new Date(Date.now() + 86400000 * 2).toISOString() // +2 days
     });
     setNewTaskTitle('');
+    // Reset assignee to current user for convenience
+    setNewTaskAssignee(user.displayName);
     setIsAddingTask(false);
     onRefreshData();
   };
@@ -141,6 +155,66 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
       setIsGoogleFileModalOpen(true);
   };
 
+  // --- Offer Actions ---
+
+  const handleOpenOfferModal = (offer?: Offer) => {
+    if (offer) {
+      setCurrentOffer(offer);
+      setOfferClient(offer.clientName);
+      setOfferAmount(offer.amount);
+      setOfferStatus(offer.status);
+      setOfferNotes(offer.notes || '');
+    } else {
+      setCurrentOffer(null);
+      setOfferClient('');
+      setOfferAmount(0);
+      setOfferStatus('Pending');
+      setOfferNotes('');
+    }
+    setIsOfferModalOpen(true);
+  };
+
+  const handleSaveOffer = async () => {
+    if (!offerClient || !offerAmount) return;
+
+    if (currentOffer) {
+      await dataService.updateOffer({
+        ...currentOffer,
+        clientName: offerClient,
+        amount: offerAmount,
+        status: offerStatus,
+        notes: offerNotes
+      });
+    } else {
+      await dataService.createOffer({
+        dealId: deal.id,
+        clientName: offerClient,
+        amount: offerAmount,
+        status: offerStatus,
+        notes: offerNotes,
+        submittedDate: new Date().toISOString(),
+        documents: []
+      });
+    }
+    setIsOfferModalOpen(false);
+    onRefreshData();
+  };
+
+  const handleDeleteOffer = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this offer?')) {
+      await dataService.deleteOffer(id);
+      onRefreshData();
+    }
+  };
+
+  const handleOfferFileUpload = async (offerId: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      await dataService.addOfferDocument(offerId, e.target.files[0]);
+      onRefreshData();
+    }
+  };
+
+
   // --- Renderers ---
 
   const renderKanban = () => {
@@ -152,27 +226,35 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
             const colTasks = tasks.filter(t => t.status === status);
             return (
               <div key={status} className="flex-1 bg-gray-100 rounded-xl flex flex-col max-h-full">
-                <div className="p-3 border-b border-gray-200 font-semibold text-gray-700 flex justify-between items-center">
+                <div className="p-3 border-b border-gray-200 font-semibold text-gray-700 flex justify-between items-center bg-gray-100 rounded-t-xl sticky top-0 z-10">
                   {status}
                   <span className="bg-gray-200 text-gray-600 text-xs py-0.5 px-2 rounded-full">{colTasks.length}</span>
                 </div>
                 <div className="p-2 space-y-2 overflow-y-auto flex-1">
                   {status === 'To Do' && (
-                    <div className="bg-white p-2 rounded-lg border border-gray-200 shadow-sm ring-1 ring-transparent focus-within:ring-indigo-500 transition-shadow">
+                    <div className="bg-white p-3 rounded-lg border border-indigo-100 shadow-sm mb-3">
+                      <div className="text-xs font-bold text-indigo-600 mb-2 uppercase tracking-wide">New Task</div>
                       <input 
-                        className="w-full text-sm outline-none mb-2 font-medium"
-                        placeholder="+ Add task..."
+                        className="w-full text-sm border-b border-gray-200 focus:border-indigo-500 outline-none py-1 mb-2 bg-transparent placeholder-gray-400"
+                        placeholder="What needs to be done?"
                         value={newTaskTitle}
                         onChange={e => setNewTaskTitle(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleAddTask()}
                       />
-                      <div className="flex gap-2 mb-2">
+                      <div className="flex gap-2 mb-3">
                          <select 
-                            className="text-xs bg-gray-50 border border-gray-200 rounded p-1 text-gray-600 flex-1"
+                            className="text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1 text-gray-700 flex-1 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                             value={newTaskAssignee}
                             onChange={(e) => setNewTaskAssignee(e.target.value)}
                           >
-                            {teamMembers.map(u => <option key={u.id} value={u.displayName}>{u.displayName}</option>)}
+                            <option value={user.displayName}>Me ({user.displayName})</option>
+                            <option value="Unassigned">Unassigned</option>
+                            <option value="General Team">General Team</option>
+                            <optgroup label="Team Members">
+                              {teamMembers.filter(m => m.id !== user.id).map(u => (
+                                <option key={u.id} value={u.displayName}>{u.displayName}</option>
+                              ))}
+                            </optgroup>
                           </select>
                       </div>
                       <Button 
@@ -186,7 +268,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                     </div>
                   )}
                   {colTasks.map(task => (
-                    <div key={task.id} className={`bg-white p-3 rounded-lg border border-gray-200 shadow-sm ${task.status === 'Completed' ? 'opacity-60' : ''}`}>
+                    <div key={task.id} className={`bg-white p-3 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow ${task.status === 'Completed' ? 'opacity-60' : ''}`}>
                       <div className="flex justify-between items-start mb-2">
                         <span className={`text-sm font-medium text-gray-900 ${task.status === 'Completed' ? 'line-through' : ''}`}>{task.title}</span>
                         {task.priority === 'High' && <span className="w-2 h-2 rounded-full bg-red-500 mt-1.5" title="High Priority" />}
@@ -201,12 +283,16 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                             value={task.assignedToName}
                             onChange={(e) => handleTaskAssigneeChange(task, e.target.value)}
                           >
-                            {teamMembers.map(u => <option key={u.id} value={u.displayName}>{u.displayName}</option>)}
+                            <option value="Unassigned">Unassigned</option>
+                            <option value="General Team">General Team</option>
+                            <optgroup label="Team Members">
+                              {teamMembers.map(u => <option key={u.id} value={u.displayName}>{u.displayName}</option>)}
+                            </optgroup>
                           </select>
                       </div>
 
                       <select 
-                        className="w-full text-xs border border-gray-200 rounded p-1 bg-gray-50 text-gray-700"
+                        className="w-full text-xs border border-gray-200 rounded p-1 bg-gray-50 text-gray-700 cursor-pointer"
                         value={task.status}
                         onChange={(e) => handleTaskStatusChange(task, e.target.value as TaskStatus)}
                       >
@@ -214,6 +300,9 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                       </select>
                     </div>
                   ))}
+                  {colTasks.length === 0 && status !== 'To Do' && (
+                    <div className="text-center text-xs text-gray-400 py-4 italic">No tasks</div>
+                  )}
                 </div>
               </div>
             );
@@ -365,6 +454,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                     id="doc-upload" 
                     className="hidden" 
                     onChange={handleFileUpload}
+                    onClick={(e) => (e.target as HTMLInputElement).value = ''}
                   />
                   <label htmlFor="doc-upload" className="flex items-center gap-2 cursor-pointer bg-slate-800 text-white px-3 py-1.5 rounded-md text-sm hover:bg-slate-900 transition-colors h-full">
                      <Upload size={14} /> Upload
@@ -397,6 +487,95 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
               ))}
             </div>
          </div>
+      </div>
+    );
+  };
+
+  const renderOffers = () => {
+    return (
+      <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 className="font-semibold text-gray-800">Offers ({offers.length})</h3>
+            <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={() => handleOpenOfferModal()}>
+                Log New Offer
+            </Button>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4">
+          {offers.length === 0 && (
+              <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-100 rounded-xl">
+                <DollarSign size={48} className="mx-auto mb-2 opacity-20" />
+                <p>No offers received yet.</p>
+                <p className="text-xs">Log offers here to track negotiations.</p>
+              </div>
+          )}
+          <div className="grid grid-cols-1 gap-4">
+             {offers.map(offer => (
+                <Card key={offer.id} className="p-4 border border-gray-200 hover:shadow-md transition-shadow relative group">
+                  <div className="flex flex-col md:flex-row justify-between md:items-start gap-4 mb-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-lg font-bold text-gray-900">{offer.clientName}</h4>
+                        <Badge color={
+                          offer.status === 'Accepted' ? 'green' : 
+                          offer.status === 'Rejected' ? 'red' :
+                          offer.status === 'Countered' ? 'purple' : 
+                          offer.status === 'Withdrawn' ? 'gray' : 'yellow'
+                        }>{offer.status}</Badge>
+                      </div>
+                      <p className="text-xl font-bold text-emerald-600">${offer.amount.toLocaleString()}</p>
+                    </div>
+                    <div className="text-right text-xs text-gray-500">
+                      <div className="flex items-center gap-1 justify-end"><Calendar size={12} /> {new Date(offer.submittedDate).toLocaleDateString()}</div>
+                      <div className="mt-1">ID: {offer.id}</div>
+                    </div>
+                  </div>
+                  
+                  {offer.notes && (
+                    <div className="bg-gray-50 p-3 rounded-md text-sm text-gray-700 mb-4 border border-gray-100">
+                       <span className="font-semibold text-xs text-gray-500 uppercase block mb-1">Notes</span>
+                       {offer.notes}
+                    </div>
+                  )}
+                  
+                  {/* Documents Section within Offer */}
+                  <div className="mt-3">
+                    <div className="flex items-center justify-between mb-2">
+                       <span className="text-xs font-semibold text-gray-500 uppercase">Offer Documents</span>
+                       <div className="relative">
+                          <input 
+                            type="file" 
+                            id={`offer-doc-${offer.id}`} 
+                            className="hidden" 
+                            onChange={(e) => handleOfferFileUpload(offer.id, e)}
+                            onClick={(e) => (e.target as HTMLInputElement).value = ''}
+                          />
+                          <label htmlFor={`offer-doc-${offer.id}`} className="text-xs text-indigo-600 hover:text-indigo-800 cursor-pointer flex items-center gap-1">
+                             <Upload size={10} /> Upload Doc
+                          </label>
+                       </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {offer.documents && offer.documents.length > 0 ? (
+                        offer.documents.map(doc => (
+                          <a key={doc.id} href="#" className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-md text-xs text-gray-700 hover:bg-gray-200 transition-colors border border-gray-200">
+                             <FileText size={12} className="text-gray-500" />
+                             {doc.name}
+                          </a>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-400 italic">No documents attached</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 justify-end mt-4 pt-4 border-t border-gray-100 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                     <Button variant="outline" size="sm" icon={<Edit2 size={12} />} onClick={() => handleOpenOfferModal(offer)}>Edit</Button>
+                     <Button variant="danger" size="sm" icon={<Trash2 size={12} />} onClick={() => handleDeleteOffer(offer.id)}>Delete</Button>
+                  </div>
+                </Card>
+             ))}
+          </div>
+        </div>
       </div>
     );
   };
@@ -466,21 +645,27 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
         {/* Main Panel */}
         <div className="flex-1 flex flex-col p-6 gap-6 overflow-hidden">
           {/* Tabs */}
-          <div className="flex gap-6 border-b border-gray-200 flex-shrink-0">
+          <div className="flex gap-6 border-b border-gray-200 flex-shrink-0 overflow-x-auto">
             <button 
-              className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'kanban' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'kanban' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               onClick={() => setActiveTab('kanban')}
             >
               Tasks & Timeline
             </button>
             <button 
-              className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'activity' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'activity' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               onClick={() => setActiveTab('activity')}
             >
               Activity & Updates
             </button>
+             <button 
+              className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'offers' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              onClick={() => setActiveTab('offers')}
+            >
+              Offers ({offers.length})
+            </button>
             <button 
-              className={`pb-3 text-sm font-medium transition-colors border-b-2 ${activeTab === 'documents' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              className={`pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap ${activeTab === 'documents' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
               onClick={() => setActiveTab('documents')}
             >
               Documents ({deal.documents.length})
@@ -492,6 +677,7 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
             {activeTab === 'kanban' && renderKanban()}
             {activeTab === 'activity' && renderActivity()}
             {activeTab === 'documents' && renderDocuments()}
+            {activeTab === 'offers' && renderOffers()}
           </div>
         </div>
         
@@ -616,6 +802,62 @@ export const DealRoom: React.FC<DealRoomProps> = ({ deal, user, teamMembers, tas
                />
             </InputGroup>
             <Button className="w-full" onClick={handleCreateGoogleFile}>Create File</Button>
+         </div>
+      </Modal>
+
+       {/* Offer Modal */}
+      <Modal isOpen={isOfferModalOpen} onClose={() => setIsOfferModalOpen(false)} title={currentOffer ? 'Edit Offer' : 'Log New Offer'}>
+         <div className="space-y-4">
+           <InputGroup label="Client/Buyer Name">
+             <input 
+                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. Robert Smith"
+                value={offerClient}
+                onChange={e => setOfferClient(e.target.value)}
+             />
+           </InputGroup>
+           <InputGroup label="Offer Amount">
+             <div className="relative">
+                <span className="absolute left-3 top-2 text-gray-500">$</span>
+                <input 
+                  type="number"
+                  className="w-full border border-gray-300 rounded-md pl-6 p-2 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="500000"
+                  value={offerAmount}
+                  onChange={e => setOfferAmount(Number(e.target.value))}
+                />
+             </div>
+           </InputGroup>
+           <InputGroup label="Status">
+             <select 
+                className="w-full border border-gray-300 rounded-md p-2 bg-white"
+                value={offerStatus}
+                onChange={e => setOfferStatus(e.target.value as OfferStatus)}
+             >
+                <option value="Pending">Pending</option>
+                <option value="Accepted">Accepted</option>
+                <option value="Rejected">Rejected</option>
+                <option value="Countered">Countered</option>
+                <option value="Withdrawn">Withdrawn</option>
+             </select>
+           </InputGroup>
+           <InputGroup label="Notes/Conditions">
+              <textarea 
+                className="w-full border border-gray-300 rounded-md p-2 h-24 focus:ring-2 focus:ring-indigo-500 outline-none"
+                placeholder="e.g. Subject to inspection..."
+                value={offerNotes}
+                onChange={e => setOfferNotes(e.target.value)}
+              />
+           </InputGroup>
+           <div className="pt-2">
+              <Button 
+                className="w-full" 
+                onClick={handleSaveOffer}
+                disabled={!offerClient || !offerAmount}
+              >
+                {currentOffer ? 'Update Offer' : 'Log Offer'}
+              </Button>
+           </div>
          </div>
       </Modal>
     </div>

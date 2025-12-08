@@ -1,12 +1,12 @@
 
-import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact } from '../types';
+import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer } from '../types';
 
 // Seed data
 const SEED_TEAM_MEMBERS: User[] = [
-  { id: 'u1', displayName: 'Shreyas', initials: 'S', role: 'admin', email: 'shreyas@realitymark.com' },
-  { id: 'u2', displayName: 'Sarah Sales', initials: 'SS', role: 'agent', email: 'sarah@realitymark.com' },
-  { id: 'u3', displayName: 'Mike Manager', initials: 'MM', role: 'agent', email: 'mike@realitymark.com' },
-  { id: 'u4', displayName: 'Linda Legal', initials: 'LL', role: 'agent', email: 'linda@realitymark.com' },
+  { id: 'u1', displayName: 'Shreyas', initials: 'S', role: 'admin', email: 'shreyas@realitymark.com', phone: '(555) 123-4567' },
+  { id: 'u2', displayName: 'Sarah Sales', initials: 'SS', role: 'agent', email: 'sarah@realitymark.com', phone: '(555) 234-5678' },
+  { id: 'u3', displayName: 'Mike Manager', initials: 'MM', role: 'agent', email: 'mike@realitymark.com', phone: '(555) 345-6789' },
+  { id: 'u4', displayName: 'Linda Legal', initials: 'LL', role: 'agent', email: 'linda@realitymark.com', phone: '(555) 456-7890' },
 ];
 
 const SEED_CONTACTS: Contact[] = [
@@ -63,6 +63,21 @@ const SEED_DEALS: Deal[] = [
     price: 1200000,
     commissionRate: 3.0,
     documents: []
+  }
+];
+
+const SEED_OFFERS: Offer[] = [
+  {
+    id: 'o1',
+    dealId: 'd1',
+    clientName: 'Robert Buyer',
+    amount: 540000,
+    status: 'Pending',
+    submittedDate: new Date(Date.now() - 86400000).toISOString(),
+    notes: 'Pre-approved. Flexible closing timeline.',
+    documents: [
+      { id: 'odoc1', name: 'Offer Letter.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
+    ]
   }
 ];
 
@@ -385,6 +400,76 @@ class DataService {
       deals[index] = { ...deal, updatedAt: new Date().toISOString() };
       this.save('deals', deals);
     }
+  }
+
+  // --- Offers ---
+  async getAllOffers(): Promise<Offer[]> {
+    await delay(100);
+    return this.load<Offer[]>('offers', SEED_OFFERS);
+  }
+
+  async getOffers(dealId: string): Promise<Offer[]> {
+    await delay(100);
+    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    return offers.filter(o => o.dealId === dealId).sort((a, b) => new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime());
+  }
+
+  async createOffer(offer: Omit<Offer, 'id'>): Promise<Offer> {
+    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    const newOffer: Offer = {
+      ...offer,
+      id: `o${Date.now()}`,
+    };
+    offers.push(newOffer);
+    this.save('offers', offers);
+    
+    // Log activity
+    await this.addUpdate({
+      dealId: offer.dealId,
+      content: `New offer received from ${offer.clientName} for $${offer.amount.toLocaleString()}`,
+      tag: 'Note',
+      userId: this.getUser()?.id || 'unknown',
+      userName: this.getUser()?.displayName || 'Unknown',
+      timestamp: new Date().toISOString(),
+      id: ''
+    });
+
+    return newOffer;
+  }
+
+  async updateOffer(offer: Offer): Promise<void> {
+    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    const index = offers.findIndex(o => o.id === offer.id);
+    if (index !== -1) {
+      offers[index] = offer;
+      this.save('offers', offers);
+    }
+  }
+
+  async deleteOffer(offerId: string): Promise<void> {
+    let offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    offers = offers.filter(o => o.id !== offerId);
+    this.save('offers', offers);
+  }
+
+  async addOfferDocument(offerId: string, file: File): Promise<DealDocument> {
+    await delay(300);
+    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    const index = offers.findIndex(o => o.id === offerId);
+    if (index === -1) throw new Error("Offer not found");
+
+    const newDoc: DealDocument = {
+      id: `odoc${Date.now()}`,
+      name: file.name,
+      type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'other',
+      url: '#',
+      uploadedAt: new Date().toISOString()
+    };
+    
+    if (!offers[index].documents) offers[index].documents = [];
+    offers[index].documents.push(newDoc);
+    this.save('offers', offers);
+    return newDoc;
   }
 
   // --- Documents ---

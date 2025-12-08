@@ -7,6 +7,7 @@ export type UpdateTag = 'Note' | 'Call' | 'Email' | 'Document' | 'Meeting' | 'Wh
 export type UserRole = 'admin' | 'agent';
 export type GoogleCalendarStatus = 'disconnected' | 'connecting' | 'connected';
 export type ContactType = 'Buyer' | 'Seller' | 'Lead' | 'Vendor' | 'Other';
+export type OfferStatus = 'Pending' | 'Accepted' | 'Rejected' | 'Countered' | 'Withdrawn';
 
 export interface User {
   id: string;
@@ -14,6 +15,7 @@ export interface User {
   initials: string;
   role: UserRole;
   email?: string;
+  phone?: string;
 }
 
 export interface Contact {
@@ -51,6 +53,17 @@ export interface Deal {
   commissionRate: number; // Percentage (e.g. 2.5)
 
   // Documents
+  documents: DealDocument[];
+}
+
+export interface Offer {
+  id: string;
+  dealId: string;
+  clientName: string;
+  amount: number;
+  status: OfferStatus;
+  submittedDate: string; // ISO String
+  notes?: string;
   documents: DealDocument[];
 }
 
@@ -109,6 +122,6 @@ export interface Reminder {
 
 export interface AppState {
   currentUser: User | null;
-  view: 'dashboard' | 'deals' | 'mytasks' | 'calendar' | 'deal-room' | 'team' | 'messages' | 'contacts' | 'profile';
+  view: 'dashboard' | 'deals' | 'offers' | 'mytasks' | 'calendar' | 'deal-room' | 'team' | 'messages' | 'contacts' | 'profile';
   selectedDealId: string | null;
 }

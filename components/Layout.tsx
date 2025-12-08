@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Home, Briefcase, CheckSquare, Calendar, Users, Shield, MessageSquare, LogOut, Contact as ContactIcon } from 'lucide-react';
+import { Home, Briefcase, CheckSquare, Calendar, Users, Shield, MessageSquare, LogOut, Contact as ContactIcon, DollarSign } from 'lucide-react';
 import { User, AppState } from '../types';
 import { dataService } from '../services/dataService';
 
@@ -16,6 +16,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
     { id: 'deals', label: 'All Deals', icon: <Briefcase size={20} /> },
+    { id: 'offers', label: 'Offers', icon: <DollarSign size={20} /> },
     { id: 'contacts', label: 'Contacts', icon: <ContactIcon size={20} /> },
     { id: 'mytasks', label: 'My Tasks', icon: <CheckSquare size={20} /> },
     { id: 'calendar', label: 'Calendar', icon: <Calendar size={20} /> },
