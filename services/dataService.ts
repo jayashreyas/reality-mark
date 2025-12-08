@@ -237,6 +237,23 @@ class DataService {
     return newContact;
   }
 
+  async addContacts(newContactsData: Omit<Contact, 'id' | 'lastContacted'>[]): Promise<Contact[]> {
+    const contacts = await this.getContacts();
+    const createdContacts: Contact[] = newContactsData.map(c => ({
+      ...c,
+      id: `c${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      lastContacted: undefined // imported contacts haven't been contacted yet
+    }));
+    
+    // Add all to array
+    contacts.push(...createdContacts);
+    this.save('contacts', contacts);
+    
+    // Simulate slight delay for bulk op
+    await delay(500);
+    return createdContacts;
+  }
+
   async updateContact(contact: Contact): Promise<void> {
     const contacts = await this.getContacts();
     const index = contacts.findIndex(c => c.id === contact.id);

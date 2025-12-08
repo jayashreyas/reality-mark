@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Contact, ContactType } from '../types';
 import { Card, Button, Modal, InputGroup, Badge } from '../components/Shared';
-import { Users, Search, Filter, Plus, Phone, Mail, Edit2, Trash2, FileSpreadsheet } from 'lucide-react';
+import { Users, Search, Filter, Plus, Phone, Mail, Edit2, Trash2, FileSpreadsheet, Download } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 export const Contacts: React.FC = () => {
@@ -89,60 +89,112 @@ export const Contacts: React.FC = () => {
     }
   };
 
+  const handleDownloadTemplate = () => {
+    const headers = "Name,Email,Phone,Type,Notes";
+    const row1 = "John Doe,john@example.com,555-123-4567,Buyer,Looking for 3 bed";
+    const row2 = "Jane Smith,jane@example.com,555-987-6543,Seller,Has a condo downtown";
+    const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(`${headers}\n${row1}\n${row2}`);
+    const link = document.createElement("a");
+    link.setAttribute("href", csvContent);
+    link.setAttribute("download", "reality_mark_contacts_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Improved CSV parser that handles quotes
+  const parseCSVLine = (text: string) => {
+    const result = [];
+    let current = '';
+    let inQuote = false;
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '"') {
+        inQuote = !inQuote;
+      } else if (char === ',' && !inQuote) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
   const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
     setIsImporting(true);
-    const reader = new FileReader();
+    
+    try {
+      const text = await file.text();
+      // Split by newline, handling both \r\n and \n
+      const lines = text.split(/\r?\n/);
+      const newContactsBatch: Omit<Contact, 'id' | 'lastContacted'>[] = [];
+      let duplicateCount = 0;
 
-    reader.onload = async (e) => {
-      const text = e.target?.result as string;
-      if (!text) return;
-
-      const lines = text.split('\n');
-      let importedCount = 0;
-
-      // Skip header if it exists (basic check)
-      const startIndex = lines[0].toLowerCase().includes('name') ? 1 : 0;
+      // Determine start index: Skip header if "email" is found in first line (case insensitive)
+      const startIndex = lines[0]?.toLowerCase().includes('email') ? 1 : 0;
 
       for (let i = startIndex; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
 
-        // Simple CSV parsing: Name,Email,Phone,Type,Notes
-        const cols = line.split(',');
+        const cols = parseCSVLine(line);
+
         if (cols.length >= 2) {
-           const cName = cols[0].trim();
-           const cEmail = cols[1].trim();
-           const cPhone = cols[2]?.trim() || '';
-           const cType = cols[3]?.trim() || 'Lead';
-           const cNotes = cols.slice(4).join(',').trim();
+           const cName = cols[0];
+           const cEmail = cols[1];
+           const cPhone = cols[2] || '';
+           const cTypeRaw = cols[3] || 'Lead';
+           const cNotes = cols.slice(4).join(','); // Join remaining cols as notes
 
            // Basic Validation
-           if (cName && cEmail.includes('@')) {
-             const exists = contacts.find(existing => existing.email === cEmail);
-             if (!exists) {
-                await dataService.addContact({
+           if (cName && cEmail && cEmail.includes('@')) {
+             // Check against current list to avoid obvious dupes
+             const existsInCurrent = contacts.find(existing => existing.email.toLowerCase() === cEmail.toLowerCase());
+             // Also check against the batch we are building to avoid duplicates within the CSV itself
+             const existsInBatch = newContactsBatch.find(batch => batch.email.toLowerCase() === cEmail.toLowerCase());
+             
+             if (!existsInCurrent && !existsInBatch) {
+                const validTypes = ['Buyer', 'Seller', 'Lead', 'Vendor'];
+                // Default to 'Lead' if type is invalid, normalize case
+                const normalizedType = cTypeRaw.charAt(0).toUpperCase() + cTypeRaw.slice(1).toLowerCase();
+                const finalType = validTypes.includes(normalizedType) ? normalizedType as ContactType : 'Lead';
+
+                newContactsBatch.push({
                   name: cName,
                   email: cEmail,
                   phone: cPhone,
-                  type: (['Buyer', 'Seller', 'Lead', 'Vendor'].includes(cType) ? cType : 'Lead') as ContactType,
+                  type: finalType,
                   notes: cNotes
                 });
-                importedCount++;
+             } else {
+               duplicateCount++;
              }
            }
         }
       }
 
-      await loadContacts();
-      alert(`Successfully imported ${importedCount} contacts.`);
+      if (newContactsBatch.length > 0) {
+        await dataService.addContacts(newContactsBatch);
+        await loadContacts();
+        alert(`Import Complete!\n• Added: ${newContactsBatch.length}\n• Skipped (Duplicates): ${duplicateCount}`);
+      } else {
+        alert(duplicateCount > 0 
+          ? `All ${duplicateCount} contacts in this file were duplicates.` 
+          : "No valid contacts found in file.");
+      }
+
+    } catch (error) {
+      console.error("Import failed", error);
+      alert("Failed to parse the CSV file. Please make sure it follows the template format.");
+    } finally {
       setIsImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
-    };
-
-    reader.readAsText(file);
+    }
   };
 
   const filteredContacts = contacts.filter(c => {
@@ -170,6 +222,14 @@ export const Contacts: React.FC = () => {
               className="hidden" 
               onChange={handleImportCSV} 
             />
+            <Button 
+              variant="outline"
+              icon={<Download size={16} />}
+              onClick={handleDownloadTemplate}
+              title="Download CSV Template"
+            >
+              Template
+            </Button>
             <Button 
                 variant="outline" 
                 icon={<FileSpreadsheet size={18} />} 
