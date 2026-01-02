@@ -2,17 +2,13 @@
 import { GoogleGenAI } from "@google/genai";
 import { Update, CrmData } from "../types";
 
-const API_KEY = process.env.API_KEY || '';
-
-// Initialize generically. If key is missing, methods will throw/fail gracefully in the UI.
-let ai: GoogleGenAI | null = null;
-try {
-    if (API_KEY) {
-        ai = new GoogleGenAI({ apiKey: API_KEY });
-    }
-} catch (e) {
-    console.error("Failed to initialize GoogleGenAI", e);
-}
+// Helper to get AI instance ensuring the latest API key is used
+const getAI = () => {
+  if (!process.env.API_KEY) {
+    throw new Error("API Key is missing. Please check your configuration.");
+  }
+  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+};
 
 export const generateListingDescription = async (
   address: string,
@@ -20,10 +16,7 @@ export const generateListingDescription = async (
   features: string,
   tone: string
 ): Promise<string> => {
-  if (!ai) {
-    throw new Error("Missing API Key");
-  }
-
+  const ai = getAI();
   const prompt = `
     You are a professional real estate copywriter. 
     Write a compelling listing description for a ${type} property located at ${address}.
@@ -38,7 +31,7 @@ export const generateListingDescription = async (
 
   try {
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
     return response.text || "Could not generate description.";
@@ -49,35 +42,32 @@ export const generateListingDescription = async (
 };
 
 export const summarizeDealActivity = async (updates: Update[]): Promise<{ summary: string; nextSteps: string[] }> => {
-  if (!ai) {
-    return { summary: "API Key Missing. Cannot analyze.", nextSteps: [] };
-  }
-
-  if (updates.length === 0) {
-    return { summary: "No activity to summarize yet.", nextSteps: ["Reach out to client", "Review deal documents"] };
-  }
-
-  // Format updates for context
-  const history = updates.map(u => `[${u.tag}] ${u.userName} (${u.timestamp}): ${u.content}`).join('\n');
-
-  const prompt = `
-    Analyze the following activity log for a real estate deal:
-    
-    ${history}
-    
-    1. Provide a 2-sentence summary of the current status.
-    2. Suggest 3 concrete next steps for the agent.
-    
-    Output JSON format:
-    {
-      "summary": "...",
-      "nextSteps": ["Step 1", "Step 2", "Step 3"]
-    }
-  `;
-
   try {
+    const ai = getAI();
+    if (updates.length === 0) {
+      return { summary: "No activity to summarize yet.", nextSteps: ["Reach out to client", "Review deal documents"] };
+    }
+
+    // Format updates for context
+    const history = updates.map(u => `[${u.tag}] ${u.userName} (${u.timestamp}): ${u.content}`).join('\n');
+
+    const prompt = `
+      Analyze the following activity log for a real estate deal:
+      
+      ${history}
+      
+      1. Provide a 2-sentence summary of the current status.
+      2. Suggest 3 concrete next steps for the agent.
+      
+      Output JSON format:
+      {
+        "summary": "...",
+        "nextSteps": ["Step 1", "Step 2", "Step 3"]
+      }
+    `;
+
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         responseMimeType: "application/json"
@@ -99,60 +89,57 @@ export const summarizeDealActivity = async (updates: Update[]): Promise<{ summar
 };
 
 export const queryCRM = async (query: string, data: CrmData): Promise<string> => {
-  if (!ai) {
-    return "I need an API Key to answer that. Please check your configuration.";
-  }
-
-  // Create a simplified context to send to the model
-  const context = {
-    user: { name: data.user.displayName, role: data.user.role },
-    deals: data.deals.map(d => ({ 
-        id: d.id, 
-        address: d.address, 
-        client: d.clientName, 
-        status: d.status, 
-        price: d.price, 
-        type: d.type 
-    })),
-    tasks: data.tasks.filter(t => t.status !== 'Completed').map(t => ({
-        title: t.title,
-        status: t.status,
-        priority: t.priority,
-        due: t.dueDate,
-        assignedTo: t.assignedToName
-    })),
-    offers: data.offers.map(o => ({
-        property: o.propertyAddress,
-        buyer: o.clientName,
-        amount: o.amount,
-        status: o.status
-    })),
-    contacts: data.contacts.slice(0, 20).map(c => ({ // Limit contacts
-        name: c.name,
-        type: c.type,
-        email: c.email
-    }))
-  };
-
-  const prompt = `
-    You are Nexus AI, a helpful assistant for the Reality Mark Real Estate CRM.
-    
-    Context Data:
-    ${JSON.stringify(context, null, 2)}
-    
-    User Query: "${query}"
-    
-    Instructions:
-    1. Answer the user's question based strictly on the provided Context Data.
-    2. If the user asks about "my tasks" or "my deals", filter by the current user (${context.user.name}).
-    3. Keep the response concise, professional, and helpful.
-    4. If the information is not in the context, say "I don't have that information right now."
-    5. Do not invent data.
-  `;
-
   try {
+    const ai = getAI();
+    // Create a simplified context to send to the model
+    const context = {
+      user: { name: data.user.displayName, role: data.user.role },
+      deals: data.deals.map(d => ({ 
+          id: d.id, 
+          address: d.address, 
+          client: d.clientName, 
+          status: d.status, 
+          price: d.price, 
+          type: d.type 
+      })),
+      tasks: data.tasks.filter(t => t.status !== 'Completed').map(t => ({
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          due: t.dueDate,
+          assignedTo: t.assignedToName
+      })),
+      offers: data.offers.map(o => ({
+          property: o.propertyAddress,
+          buyer: o.clientName,
+          amount: o.amount,
+          status: o.status
+      })),
+      contacts: data.contacts.slice(0, 20).map(c => ({ // Limit contacts
+          name: c.name,
+          type: c.type,
+          email: c.email
+      }))
+    };
+
+    const prompt = `
+      You are Nexus AI, a helpful assistant for the Reality Mark Real Estate CRM.
+      
+      Context Data:
+      ${JSON.stringify(context, null, 2)}
+      
+      User Query: "${query}"
+      
+      Instructions:
+      1. Answer the user's question based strictly on the provided Context Data.
+      2. If the user asks about "my tasks" or "my deals", filter by the current user (${context.user.name}).
+      3. Keep the response concise, professional, and helpful.
+      4. If the information is not in the context, say "I don't have that information right now."
+      5. Do not invent data.
+    `;
+
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
     });
     return response.text || "I couldn't generate an answer.";

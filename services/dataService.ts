@@ -1,7 +1,6 @@
 
 import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer, Notification, CrmData } from '../types';
 
-// Seed data
 const SEED_TEAM_MEMBERS: User[] = [
   { id: 'u1', displayName: 'Shreyas', initials: 'S', role: 'admin', email: 'shreyas@realitymark.com', phone: '(555) 123-4567' },
   { id: 'u2', displayName: 'Sarah Sales', initials: 'SS', role: 'agent', email: 'sarah@realitymark.com', phone: '(555) 234-5678' },
@@ -12,13 +11,21 @@ const SEED_TEAM_MEMBERS: User[] = [
 const SEED_CONTACTS: Contact[] = [
   { id: 'c1', name: 'Sarah Jenkins', email: 'sarah.j@example.com', phone: '(555) 123-4567', type: 'Seller', notes: 'Prefers texts. Selling due to relocation.', lastContacted: new Date().toISOString() },
   { id: 'c2', name: 'Michael Bond', email: 'm.bond@example.com', phone: '(555) 987-6543', type: 'Buyer', notes: 'Looking for penthouse suites only.', lastContacted: new Date(Date.now() - 86400000 * 5).toISOString() },
-  { id: 'c3', name: 'John Doe', email: 'john@example.com', phone: '(555) 555-5555', type: 'Lead', notes: 'Met at open house. Interested in 3bd/2ba.', lastContacted: new Date(Date.now() - 86400000 * 10).toISOString() },
-  { id: 'c4', name: 'Best Photos Inc', email: 'book@bestphotos.com', phone: '(555) 111-2222', type: 'Vendor', notes: 'Our go-to photographer.', lastContacted: new Date(Date.now() - 86400000 * 20).toISOString() },
 ];
 
 const SEED_DEALS: Deal[] = [
   {
     id: 'd1',
+    mlsNumber: 'MLS-230045',
+    category: 'Resi',
+    subType: 'Detached',
+    city: 'Springfield',
+    beds: 4,
+    baths: 2.5,
+    contractualInfo: 'Ready',
+    searchId: 'S-991',
+    officeName: 'Reality Mark HQ',
+    statusDate: new Date().toISOString(),
     clientName: 'Sarah Jenkins',
     address: '124 Maple Ave, Springfield',
     type: 'Sale',
@@ -29,13 +36,20 @@ const SEED_DEALS: Deal[] = [
     updatedAt: new Date().toISOString(),
     price: 550000,
     commissionRate: 2.5,
-    documents: [
-      { id: 'doc1', name: 'Agency Disclosure.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() },
-      { id: 'doc2', name: 'Listing Agreement.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
-    ]
+    documents: []
   },
   {
     id: 'd2',
+    mlsNumber: 'MLS-559281',
+    category: 'Comm',
+    subType: 'Office',
+    city: 'Metro City',
+    beds: 0,
+    baths: 2,
+    contractualInfo: 'Pending',
+    searchId: 'S-104',
+    officeName: 'Reality Mark HQ',
+    statusDate: new Date(Date.now() - 86400000).toISOString(),
     clientName: 'TechCorp Inc.',
     address: '500 Innovation Blvd, Suite 200',
     type: 'Rental',
@@ -44,24 +58,8 @@ const SEED_DEALS: Deal[] = [
     primaryAgentName: 'Shreyas',
     createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
     updatedAt: new Date().toISOString(),
-    price: 4500, // Monthly rent
-    commissionRate: 100, // 1 month rent
-    documents: [
-      { id: 'doc3', name: 'Lease Draft v1.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
-    ]
-  },
-  {
-    id: 'd3',
-    clientName: 'Michael Bond',
-    address: '88 Skyview Penthouse',
-    type: 'Sale',
-    status: 'Lead',
-    primaryAgentId: 'u1',
-    primaryAgentName: 'Shreyas',
-    createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-    updatedAt: new Date().toISOString(),
-    price: 1200000,
-    commissionRate: 3.0,
+    price: 4500,
+    commissionRate: 100,
     documents: []
   }
 ];
@@ -72,20 +70,10 @@ const SEED_OFFERS: Offer[] = [
     dealId: 'd1',
     propertyAddress: '124 Maple Ave, Springfield',
     clientName: 'Robert Buyer',
-    coBuyerName: 'Emily Buyer',
-    buyerEmail: 'robert@buyer.com',
-    coBuyerEmail: 'emily@buyer.com',
-    buyerAddress: '44 Old Road, Townsville',
     amount: 540000,
-    earnestMoneyPercent: 1.0,
-    loanType: 'Conventional',
     status: 'Pending',
     submittedDate: new Date(Date.now() - 86400000).toISOString(),
-    notes: 'Pre-approved with Chase Bank. Flexible closing timeline.',
-    documents: [
-      { id: 'odoc1', name: 'Offer Letter.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() },
-      { id: 'odoc2', name: 'Chase Pre-Approval.pdf', type: 'pdf', url: '#', uploadedAt: new Date().toISOString() }
-    ]
+    documents: []
   }
 ];
 
@@ -99,80 +87,17 @@ const SEED_TASKS: Task[] = [
     assignedToName: 'Shreyas',
     dueDate: new Date(Date.now() + 86400000).toISOString(),
     createdAt: new Date().toISOString(),
-  },
-  {
-    id: 't2',
-    dealId: 'd1',
-    title: 'Order Sign Installation',
-    status: 'Completed',
-    priority: 'Normal',
-    assignedToName: 'Shreyas',
-    dueDate: new Date(Date.now() - 86400000).toISOString(),
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 't3',
-    dealId: 'd2',
-    title: 'Draft Lease Agreement',
-    status: 'In Progress',
-    priority: 'High',
-    assignedToName: 'Shreyas',
-    dueDate: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-  }
-];
-
-const SEED_UPDATES: Update[] = [
-  {
-    id: 'up1',
-    dealId: 'd1',
-    content: 'Client agreed to list at $550k. Needs painting first.',
-    tag: 'Call',
-    userId: 'u1',
-    userName: 'Shreyas',
-    timestamp: new Date(Date.now() - 100000000).toISOString(),
   }
 ];
 
 const SEED_CHANNELS: ChatChannel[] = [
   { id: 'general', name: 'General', type: 'public' },
-  { id: 'leads', name: 'Leads', type: 'public' },
-  { id: 'random', name: 'Random', type: 'public' },
 ];
 
-const SEED_MESSAGES: ChatMessage[] = [
-  { id: 'm1', channelId: 'general', userId: 'u2', userName: 'Sarah Sales', userInitials: 'SS', content: 'Has anyone seen the keys for 124 Maple?', timestamp: new Date(Date.now() - 3600000).toISOString() },
-  { id: 'm2', channelId: 'general', userId: 'u1', userName: 'Shreyas', userInitials: 'S', content: 'Yes, they are in the lockbox.', timestamp: new Date(Date.now() - 3500000).toISOString() },
-  { id: 'm3', channelId: 'leads', userId: 'u3', userName: 'Mike Manager', userInitials: 'MM', content: 'New lead coming in for downtown rentals.', timestamp: new Date(Date.now() - 100000).toISOString() },
-];
-
-const SEED_REMINDERS: Reminder[] = [
-  { id: 'r1', userId: 'u1', content: 'Call back installer', isCompleted: false, createdAt: new Date().toISOString() },
-  { id: 'r2', userId: 'u1', content: 'Buy coffee for office', isCompleted: true, createdAt: new Date().toISOString() },
-];
-
-const SEED_NOTIFICATIONS: Notification[] = [
-  { id: 'n1', userId: 'u1', title: 'New Lead Assigned', message: 'You have been assigned to 88 Skyview Penthouse.', type: 'info', isRead: false, createdAt: new Date(Date.now() - 3600000).toISOString() },
-  { id: 'n2', userId: 'u1', title: 'Task Due Soon', message: 'Draft Lease Agreement is due today.', type: 'warning', isRead: false, createdAt: new Date(Date.now() - 7200000).toISOString() },
-  { id: 'n3', userId: 'u1', title: 'Offer Received', message: 'New offer on 124 Maple Ave.', type: 'success', isRead: true, createdAt: new Date(Date.now() - 86400000).toISOString() },
-];
-
-const MOCK_GOOGLE_EVENTS = [
-  {
-    id: 'g1',
-    title: 'Client Meeting: Sarah Jenkins',
-    start: new Date(Date.now() + 86400000 * 2).toISOString(), // +2 days
-    end: new Date(Date.now() + 86400000 * 2 + 3600000).toISOString(),
-    source: 'google' as const,
-  },
-  {
-    id: 'g2',
-    title: 'Open House Prep',
-    start: new Date(Date.now() + 86400000 * 4).toISOString(), // +4 days
-    end: new Date(Date.now() + 86400000 * 4 + 7200000).toISOString(),
-    source: 'google' as const,
-  }
-];
+const SEED_MESSAGES: ChatMessage[] = [];
+const SEED_REMINDERS: Reminder[] = [];
+const SEED_NOTIFICATIONS: Notification[] = [];
+const SEED_UPDATES: Update[] = [];
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -195,7 +120,6 @@ class DataService {
     localStorage.setItem(`reality_mark_${key}`, JSON.stringify(data));
   }
 
-  // --- Auth & User ---
   getUser(): User | null {
     const stored = localStorage.getItem('reality_mark_user');
     return stored ? JSON.parse(stored) : null;
@@ -216,14 +140,7 @@ class DataService {
   }
 
   getTeamMembers(): User[] {
-    const users = this.load('team', SEED_TEAM_MEMBERS);
-    // Ensure admin always exists for demo purposes if list is somehow empty or borked
-    if (!users.find(u => u.email === 'shreyas@realitymark.com')) {
-       // Merge seed admin back in
-       users.push(SEED_TEAM_MEMBERS[0]);
-       this.save('team', users);
-    }
-    return users;
+    return this.load('team', SEED_TEAM_MEMBERS);
   }
 
   addTeamMember(member: User) {
@@ -246,7 +163,6 @@ class DataService {
     if (index !== -1) {
       team[index] = user;
       this.save('team', team);
-      // Update session user if it matches current
       const currentUser = this.getUser();
       if (currentUser && currentUser.id === user.id) {
         localStorage.setItem('reality_mark_user', JSON.stringify(user));
@@ -255,9 +171,7 @@ class DataService {
     return user;
   }
 
-  // --- Contacts ---
   async getContacts(): Promise<Contact[]> {
-    await delay(200);
     return this.load('contacts', SEED_CONTACTS);
   }
 
@@ -265,7 +179,7 @@ class DataService {
     const contacts = await this.getContacts();
     const newContact: Contact = {
       ...contact,
-      id: `c${Date.now()}-${Math.random()}`,
+      id: `c${Date.now()}`,
       lastContacted: new Date().toISOString()
     };
     contacts.push(newContact);
@@ -278,15 +192,10 @@ class DataService {
     const createdContacts: Contact[] = newContactsData.map(c => ({
       ...c,
       id: `c${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      lastContacted: undefined // imported contacts haven't been contacted yet
+      lastContacted: undefined
     }));
-    
-    // Add all to array
     contacts.push(...createdContacts);
     this.save('contacts', contacts);
-    
-    // Simulate slight delay for bulk op
-    await delay(500);
     return createdContacts;
   }
 
@@ -305,9 +214,7 @@ class DataService {
     this.save('contacts', contacts);
   }
 
-  // --- Chat ---
   async getChannels(): Promise<ChatChannel[]> {
-    await delay(100);
     return this.load('channels', SEED_CHANNELS);
   }
 
@@ -324,9 +231,8 @@ class DataService {
   }
 
   async getMessages(channelId: string): Promise<ChatMessage[]> {
-    await delay(100);
     const msgs = this.load<ChatMessage[]>('messages', SEED_MESSAGES);
-    return msgs.filter(m => m.channelId === channelId).sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return msgs.filter(m => m.channelId === channelId);
   }
 
   async sendMessage(msg: Omit<ChatMessage, 'id' | 'timestamp'>): Promise<ChatMessage> {
@@ -347,7 +253,6 @@ class DataService {
     this.save('messages', msgs);
   }
 
-  // --- Reminders ---
   async getReminders(userId: string): Promise<Reminder[]> {
     const reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
     return reminders.filter(r => r.userId === userId);
@@ -382,7 +287,6 @@ class DataService {
     this.save('reminders', reminders);
   }
 
-  // --- Notifications ---
   async getNotifications(userId: string): Promise<Notification[]> {
     const notifications = this.load<Notification[]>('notifications', SEED_NOTIFICATIONS);
     return notifications.filter(n => n.userId === userId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -403,55 +307,53 @@ class DataService {
     this.save('notifications', notifications);
   }
 
-  // --- Deals ---
   async getDeals(): Promise<Deal[]> {
-    await delay(300);
     return this.load('deals', SEED_DEALS);
   }
 
-  async createDeal(deal: Deal): Promise<Deal> {
+  async createDeal(deal: Partial<Deal>): Promise<Deal> {
     const deals = await this.getDeals();
     const newDeal: Deal = { 
-      ...deal, 
+      clientName: deal.clientName || 'Unnamed',
+      address: deal.address || 'No Address',
+      type: deal.type || 'Sale',
+      status: deal.status || 'Lead',
+      primaryAgentId: deal.primaryAgentId || 'u1',
+      primaryAgentName: deal.primaryAgentName || 'Admin',
+      price: deal.price || 0,
+      commissionRate: deal.commissionRate || 2.5,
       id: `d${Date.now()}`, 
       createdAt: new Date().toISOString(), 
       updatedAt: new Date().toISOString(),
-      price: 0,
-      commissionRate: deal.type === 'Sale' ? 2.5 : 0,
+      statusDate: new Date().toISOString(),
       documents: []
     };
     deals.push(newDeal);
     this.save('deals', deals);
-    
-    if (newDeal.type === 'Sale') {
-      await this.createTask({ dealId: newDeal.id, title: 'Send Agency Disclosure', priority: 'High', status: 'To Do', assignedToName: newDeal.primaryAgentName, dueDate: new Date().toISOString(), createdAt: new Date().toISOString(), id: '' });
-      await this.createTask({ dealId: newDeal.id, title: 'Schedule Photography', priority: 'Normal', status: 'To Do', assignedToName: newDeal.primaryAgentName, dueDate: new Date().toISOString(), createdAt: new Date().toISOString(), id: '' });
-    } else {
-      await this.createTask({ dealId: newDeal.id, title: 'Verify Income/Credit', priority: 'High', status: 'To Do', assignedToName: newDeal.primaryAgentName, dueDate: new Date().toISOString(), createdAt: new Date().toISOString(), id: '' });
-    }
-    
-    await this.addUpdate({ dealId: newDeal.id, content: 'Deal created', tag: 'Note', userId: newDeal.primaryAgentId, userName: newDeal.primaryAgentName, timestamp: new Date().toISOString(), id: '' });
-
     return newDeal;
   }
 
-  async addDeals(dealsData: Omit<Deal, 'id' | 'createdAt' | 'updatedAt' | 'documents'>[]): Promise<Deal[]> {
+  async addDeals(dealsData: Partial<Deal>[]): Promise<Deal[]> {
     const deals = await this.getDeals();
     const currentUser = this.getUser();
-    
-    const newDeals: Deal[] = dealsData.map(d => ({
+    const newDeals: Deal[] = dealsData.map((d, i) => ({
         ...d,
-        id: `d${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        id: `d${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        statusDate: new Date().toISOString(),
         primaryAgentId: currentUser?.id || 'u1',
         primaryAgentName: currentUser?.displayName || 'Admin',
+        clientName: d.clientName || 'Unnamed',
+        address: d.address || 'No Address',
+        type: d.type || 'Sale',
+        status: d.status || 'Lead',
+        price: d.price || 0,
+        commissionRate: d.commissionRate || 2.5,
         documents: []
     }));
-
     deals.push(...newDeals);
     this.save('deals', deals);
-    await delay(500);
     return newDeals;
   }
 
@@ -464,59 +366,42 @@ class DataService {
     }
   }
 
-  // --- Offers ---
   async getAllOffers(): Promise<Offer[]> {
-    await delay(100);
     return this.load<Offer[]>('offers', SEED_OFFERS);
   }
 
   async getOffers(dealId: string): Promise<Offer[]> {
-    await delay(100);
-    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
-    return offers.filter(o => o.dealId === dealId).sort((a, b) => new Date(b.submittedDate).getTime() - new Date(a.submittedDate).getTime());
+    const offers = await this.getAllOffers();
+    return offers.filter(o => o.dealId === dealId);
   }
 
   async createOffer(offer: Omit<Offer, 'id'>): Promise<Offer> {
-    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
-    const newOffer: Offer = {
-      ...offer,
-      id: `o${Date.now()}`,
-    };
+    const offers = await this.getAllOffers();
+    const newOffer: Offer = { ...offer, id: `o${Date.now()}` };
     offers.push(newOffer);
     this.save('offers', offers);
-    
-    // Log activity if linked to a deal
-    if (offer.dealId) {
-        await this.addUpdate({
-        dealId: offer.dealId,
-        content: `New offer logged for ${offer.clientName} on ${offer.propertyAddress}: $${offer.amount.toLocaleString()}`,
-        tag: 'Note',
-        userId: this.getUser()?.id || 'unknown',
-        userName: this.getUser()?.displayName || 'Unknown',
-        timestamp: new Date().toISOString(),
-        id: ''
-        });
-    }
-
     return newOffer;
   }
 
-  async addOffers(offersData: Omit<Offer, 'id' | 'documents'>[]): Promise<Offer[]> {
+  async addOffers(offersData: Partial<Offer>[]): Promise<Offer[]> {
     const offers = await this.getAllOffers();
     const newOffers: Offer[] = offersData.map(o => ({
         ...o,
         id: `o${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        status: o.status || 'Pending',
+        submittedDate: o.submittedDate || new Date().toISOString(),
+        propertyAddress: o.propertyAddress || '',
+        clientName: o.clientName || '',
+        amount: o.amount || 0,
         documents: []
     }));
-
     offers.push(...newOffers);
     this.save('offers', offers);
-    await delay(500);
     return newOffers;
   }
 
   async updateOffer(offer: Offer): Promise<void> {
-    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    const offers = await this.getAllOffers();
     const index = offers.findIndex(o => o.id === offer.id);
     if (index !== -1) {
       offers[index] = offer;
@@ -525,17 +410,15 @@ class DataService {
   }
 
   async deleteOffer(offerId: string): Promise<void> {
-    let offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    let offers = await this.getAllOffers();
     offers = offers.filter(o => o.id !== offerId);
     this.save('offers', offers);
   }
 
   async addOfferDocument(offerId: string, file: File): Promise<DealDocument> {
-    await delay(300);
-    const offers = this.load<Offer[]>('offers', SEED_OFFERS);
+    const offers = await this.getAllOffers();
     const index = offers.findIndex(o => o.id === offerId);
     if (index === -1) throw new Error("Offer not found");
-
     const newDoc: DealDocument = {
       id: `odoc${Date.now()}`,
       name: file.name,
@@ -543,21 +426,16 @@ class DataService {
       url: '#',
       uploadedAt: new Date().toISOString()
     };
-    
     if (!offers[index].documents) offers[index].documents = [];
     offers[index].documents.push(newDoc);
     this.save('offers', offers);
     return newDoc;
   }
 
-  // --- Documents ---
   async addDocument(dealId: string, file: File): Promise<DealDocument> {
-    await delay(500); 
     const deals = await this.getDeals();
     const dealIndex = deals.findIndex(d => d.id === dealId);
-    
     if (dealIndex === -1) throw new Error("Deal not found");
-    
     const newDoc: DealDocument = {
       id: `doc${Date.now()}`,
       name: file.name,
@@ -565,58 +443,28 @@ class DataService {
       url: '#',
       uploadedAt: new Date().toISOString()
     };
-
     deals[dealIndex].documents.push(newDoc);
     this.save('deals', deals);
-    
-    await this.addUpdate({
-      dealId,
-      content: `Uploaded document: ${file.name}`,
-      tag: 'Document',
-      userId: this.getUser()?.id || 'unknown',
-      userName: this.getUser()?.displayName || 'Unknown',
-      timestamp: new Date().toISOString(),
-      id: ''
-    });
-
     return newDoc;
   }
 
   async createGoogleFile(dealId: string, name: string, type: 'google-doc' | 'google-sheet' | 'google-slide'): Promise<DealDocument> {
-    await delay(300);
     const deals = await this.getDeals();
     const dealIndex = deals.findIndex(d => d.id === dealId);
     if (dealIndex === -1) throw new Error("Deal not found");
-
     const newDoc: DealDocument = {
       id: `g${Date.now()}`,
       name: name,
       type: type,
-      url: '#', // In a real app, this would be the drive file URL
+      url: '#',
       uploadedAt: new Date().toISOString()
     };
-
     deals[dealIndex].documents.push(newDoc);
     this.save('deals', deals);
-    
-    const typeLabel = type === 'google-doc' ? 'Google Doc' : type === 'google-sheet' ? 'Google Sheet' : 'Google Slide';
-
-    await this.addUpdate({
-        dealId,
-        content: `Created new ${typeLabel}: ${name}`,
-        tag: 'Document',
-        userId: this.getUser()?.id || 'unknown',
-        userName: this.getUser()?.displayName || 'Unknown',
-        timestamp: new Date().toISOString(),
-        id: ''
-    });
-
     return newDoc;
   }
 
-  // --- Tasks ---
   async getTasks(): Promise<Task[]> {
-    await delay(200);
     return this.load('tasks', SEED_TASKS);
   }
 
@@ -653,15 +501,12 @@ class DataService {
     this.save('tasks', tasks);
   }
 
-  // --- Updates ---
   async getUpdates(dealId: string): Promise<Update[]> {
-    await delay(200);
     const updates = this.load<Update[]>('updates', SEED_UPDATES);
     return updates.filter(u => u.dealId === dealId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async getOfferUpdates(offerId: string): Promise<Update[]> {
-    await delay(200);
     const updates = this.load<Update[]>('updates', SEED_UPDATES);
     return updates.filter(u => u.offerId === offerId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
@@ -683,35 +528,25 @@ class DataService {
     return newUpdate;
   }
 
-  // --- Google Calendar ---
   async getGoogleEvents(): Promise<any[]> {
     await delay(500);
-    return MOCK_GOOGLE_EVENTS;
+    return [];
   }
 
-  // --- Global Search ---
   async globalSearch(query: string): Promise<{ deals: Deal[], contacts: Contact[], offers: Offer[] }> {
     const q = query.toLowerCase();
-    
     const deals = (await this.getDeals()).filter(d => 
-        d.address.toLowerCase().includes(q) || 
-        d.clientName.toLowerCase().includes(q)
+        d.address.toLowerCase().includes(q) || d.clientName.toLowerCase().includes(q)
     ).slice(0, 3);
-
     const contacts = (await this.getContacts()).filter(c => 
-        c.name.toLowerCase().includes(q) || 
-        c.email.toLowerCase().includes(q)
+        c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)
     ).slice(0, 3);
-
     const offers = (await this.getAllOffers()).filter(o => 
-        o.clientName.toLowerCase().includes(q) || 
-        (o.propertyAddress && o.propertyAddress.toLowerCase().includes(q))
+        o.clientName.toLowerCase().includes(q) || (o.propertyAddress && o.propertyAddress.toLowerCase().includes(q))
     ).slice(0, 3);
-
     return { deals, contacts, offers };
   }
 
-  // --- AI Context Helper ---
   async getCRMDataSnapshot(): Promise<CrmData> {
     const deals = await this.getDeals();
     const tasks = await this.getTasks();
@@ -719,19 +554,8 @@ class DataService {
     const contacts = await this.getContacts();
     const teamMembers = this.getTeamMembers();
     const user = this.getUser();
-
-    if (!user) {
-        throw new Error("User not authenticated for snapshot");
-    }
-
-    return {
-      deals,
-      tasks,
-      offers,
-      contacts,
-      teamMembers,
-      user
-    };
+    if (!user) throw new Error("User not authenticated for snapshot");
+    return { deals, tasks, offers, contacts, teamMembers, user };
   }
 }
 

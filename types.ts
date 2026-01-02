@@ -38,6 +38,17 @@ export interface DealDocument {
 
 export interface Deal {
   id: string;
+  mlsNumber?: string;
+  category?: string; // e.g. Residential
+  subType?: string; // e.g. Single Family
+  city?: string;
+  beds?: number;
+  baths?: number;
+  contractualInfo?: string;
+  searchId?: string;
+  officeName?: string;
+  statusDate?: string;
+
   clientName: string;
   address: string;
   type: DealType;
@@ -58,23 +69,17 @@ export interface Deal {
 
 export interface Offer {
   id: string;
-  dealId?: string; // Optional now, offers can be standalone
+  dealId?: string; 
   status: OfferStatus;
   submittedDate: string; // ISO String
   notes?: string;
   documents: DealDocument[];
-
-  // Property Details
   propertyAddress: string;
-
-  // Buyer Details
   clientName: string; // Primary Buyer
   coBuyerName?: string;
   buyerEmail?: string;
   coBuyerEmail?: string;
   buyerAddress?: string;
-
-  // Financial Terms
   amount: number; // Offer Price
   earnestMoneyPercent?: number; // EMD in %
   loanType?: 'Cash' | 'Conventional' | 'FHA' | 'VA' | 'Other';
@@ -82,8 +87,8 @@ export interface Offer {
 
 export interface Task {
   id: string;
-  dealId?: string; // Optional
-  offerId?: string; // Optional, for Offer-specific tasks
+  dealId?: string;
+  offerId?: string;
   title: string;
   status: TaskStatus;
   priority: TaskPriority;
@@ -95,7 +100,7 @@ export interface Task {
 export interface Update {
   id: string;
   dealId?: string;
-  offerId?: string; // Added for Offer-specific updates
+  offerId?: string;
   content: string;
   tag: UpdateTag;
   userId: string;
@@ -143,7 +148,7 @@ export interface Notification {
   type: 'info' | 'success' | 'warning' | 'error';
   isRead: boolean;
   createdAt: string;
-  linkTo?: string; // e.g. 'deals' or 'tasks'
+  linkTo?: string; 
 }
 
 export interface CrmData {
