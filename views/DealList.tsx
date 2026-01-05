@@ -2,18 +2,19 @@
 import React, { useState, useRef } from 'react';
 import { Deal, Task } from '../types';
 import { Card, Badge, Button } from '../components/Shared';
-import { Search, Plus, Upload, Download, FileSpreadsheet } from 'lucide-react';
+import { Search, Plus, Upload, Download, FileSpreadsheet, Trash2 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface DealListProps {
   deals: Deal[];
   tasks: Task[];
   onOpenDeal: (id: string) => void;
+  onDeleteDeal: (id: string) => void;
   onNewDeal: () => void;
   onRefreshData: () => void;
 }
 
-export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal, onRefreshData }) => {
+export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onDeleteDeal, onNewDeal, onRefreshData }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -37,8 +38,6 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
     return new Date(dateString).toLocaleDateString();
   };
 
-  // --- CSV Import Logic ---
-  
   const handleDownloadTemplate = () => {
     const headers = "MLS #,Category,Status,Address,City,Beds,Baths,Sub Type,Price,Client Name,Office";
     const row = "MLS-1001,Residential,Active,123 Main St,Springfield,3,2,Single Family,450000,John Doe,Main Office";
@@ -106,7 +105,6 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
       if (dataRows.length < 2) throw new Error("File appears empty.");
 
       const headers = dataRows[0].map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-      
       const findCol = (terms: string[]) => headers.findIndex(h => terms.some(t => h.includes(t)));
 
       const idxMls = findCol(['mls', 'id']);
@@ -250,12 +248,21 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
                   <td className="px-4 py-3 text-gray-600 truncate max-w-[100px]">{deal.officeName || '-'}</td>
                   <td className="px-4 py-3 text-right font-bold text-gray-900">{formatCurrency(deal.price)}</td>
                   <td className="px-4 py-3 text-center">
-                    <button 
-                      onClick={() => onOpenDeal(deal.id)}
-                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
-                    >
-                      OPEN
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button 
+                        onClick={() => onOpenDeal(deal.id)}
+                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800"
+                      >
+                        OPEN
+                      </button>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onDeleteDeal(deal.id); }}
+                        className="text-gray-400 hover:text-red-500 transition-colors opacity-40 group-hover:opacity-100"
+                        title="Delete Deal"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -28,9 +28,13 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
   const [generatedListing, setGeneratedListing] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Financials State
+  // Editable fields local state
   const [price, setPrice] = useState(deal.price);
   const [commission, setCommission] = useState(deal.commissionRate);
+  const [clientName, setClientName] = useState(deal.clientName);
+  const [address, setAddress] = useState(deal.address);
+  const [mlsNumber, setMlsNumber] = useState(deal.mlsNumber || '');
+  const [category, setCategory] = useState(deal.category || '');
 
   // Tasks State
   const [newTaskTitle, setNewTaskTitle] = useState('');
@@ -48,6 +52,10 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
     if (isOpen) {
         setPrice(deal.price);
         setCommission(deal.commissionRate);
+        setClientName(deal.clientName);
+        setAddress(deal.address);
+        setMlsNumber(deal.mlsNumber || '');
+        setCategory(deal.category || '');
     }
   }, [isOpen, deal]);
 
@@ -78,6 +86,21 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
     onRefreshData();
   };
 
+  const handleDeleteTask = async (id: string) => {
+    if (window.confirm("Remove this task?")) {
+      await dataService.deleteTask(id);
+      onRefreshData();
+    }
+  };
+
+  const handleDeleteDeal = async () => {
+    if (window.confirm("Permanently delete this entire deal and all its history? This cannot be undone.")) {
+      await dataService.deleteDeal(deal.id);
+      onClose(); // Close the modal immediately
+      onRefreshData();
+    }
+  };
+
   const handlePostUpdate = async () => {
     if (!newUpdateContent.trim()) return;
     await dataService.addUpdate({
@@ -98,8 +121,16 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
     setIsSummarizing(false);
   };
 
-  const handleFinancialUpdate = async () => {
-    await dataService.updateDeal({ ...deal, price, commissionRate: commission });
+  const handleUpdateDeal = async () => {
+    await dataService.updateDeal({ 
+      ...deal, 
+      price, 
+      commissionRate: commission,
+      clientName,
+      address,
+      mlsNumber,
+      category
+    });
     onRefreshData();
   };
 
@@ -127,23 +158,39 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
               <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
                   <Briefcase size={16} /> Key Information
               </h4>
-              <div className="grid grid-cols-2 gap-4">
-                  <div>
-                      <span className="text-xs text-gray-500 block">MLS #</span>
-                      <span className="text-sm font-medium text-gray-900">{deal.mlsNumber || 'N/A'}</span>
-                  </div>
-                  <div>
-                      <span className="text-xs text-gray-500 block">Category</span>
-                      <span className="text-sm font-medium text-gray-900">{deal.category || 'N/A'}</span>
-                  </div>
-                  <div>
-                      <span className="text-xs text-gray-500 block">Client</span>
-                      <span className="text-sm font-medium text-gray-900">{deal.clientName}</span>
-                  </div>
-                  <div>
-                      <span className="text-xs text-gray-500 block">Address</span>
-                      <span className="text-sm font-medium text-gray-900">{deal.address}</span>
-                  </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                  <InputGroup label="MLS #">
+                    <input 
+                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={mlsNumber}
+                        onChange={(e) => setMlsNumber(e.target.value)}
+                        onBlur={handleUpdateDeal}
+                    />
+                  </InputGroup>
+                  <InputGroup label="Category">
+                    <input 
+                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={category}
+                        onChange={(e) => setCategory(e.target.value)}
+                        onBlur={handleUpdateDeal}
+                    />
+                  </InputGroup>
+                  <InputGroup label="Client Name">
+                    <input 
+                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        onBlur={handleUpdateDeal}
+                    />
+                  </InputGroup>
+                  <InputGroup label="Property Address">
+                    <input 
+                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                        value={address}
+                        onChange={(e) => setAddress(e.target.value)}
+                        onBlur={handleUpdateDeal}
+                    />
+                  </InputGroup>
               </div>
           </div>
 
@@ -157,37 +204,44 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
                         <span className="absolute left-3 top-2 text-gray-500 text-sm">$</span>
                         <input 
                             type="number"
-                            className="w-full border border-gray-300 rounded-md pl-6 p-2 bg-white text-gray-900 text-sm"
+                            className="w-full border border-gray-300 rounded-md pl-6 p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                             value={price}
                             onChange={(e) => setPrice(Number(e.target.value))}
-                            onBlur={handleFinancialUpdate}
+                            onBlur={handleUpdateDeal}
                         />
                     </div>
                   </InputGroup>
                   <InputGroup label={`Commission ${deal.type === 'Sale' ? '(%)' : '($)'}`}>
                      <input 
                         type="number"
-                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm"
+                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                         value={commission}
                         onChange={(e) => setCommission(Number(e.target.value))}
-                        onBlur={handleFinancialUpdate}
+                        onBlur={handleUpdateDeal}
                     />
                   </InputGroup>
               </div>
           </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" className="flex-1" icon={<Sparkles size={16}/>} onClick={() => setIsListingModalOpen(true)}>
-                AI Listing Description
-            </Button>
-            <a 
-                href={`https://wa.me/?text=Update on ${deal.address}`}
-                target="_blank"
-                rel="noreferrer"
-                className="flex-1 inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none h-10 px-4 py-2 text-sm bg-[#25D366] text-white hover:bg-[#128C7E]"
-            >
-                <Phone size={16} className="mr-2" /> WhatsApp Client
-            </a>
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" icon={<Sparkles size={16}/>} onClick={() => setIsListingModalOpen(true)}>
+                    AI Listing Description
+                </Button>
+                <a 
+                    href={`https://wa.me/?text=Update on ${deal.address}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none h-10 px-4 py-2 text-sm bg-[#25D366] text-white hover:bg-[#128C7E]"
+                >
+                    <Phone size={16} className="mr-2" /> WhatsApp Client
+                </a>
+            </div>
+            {user.role === 'admin' && (
+                <Button variant="danger" icon={<Trash2 size={16} />} onClick={handleDeleteDeal} className="w-full">
+                    Delete Deal Room
+                </Button>
+            )}
           </div>
       </div>
   );
@@ -209,7 +263,7 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
           <div className="flex-1 overflow-y-auto p-4 space-y-2">
               {tasks.length === 0 && <p className="text-center text-gray-400 py-10">No tasks found.</p>}
               {tasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm">
+                  <div key={task.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm group">
                       <div className="flex items-center gap-3">
                         <input 
                           type="checkbox" 
@@ -219,7 +273,15 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
                         />
                         <span className={`text-sm font-medium ${task.status === 'Completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</span>
                       </div>
-                      <Badge color={task.status === 'Completed' ? 'green' : 'blue'}>{task.status}</Badge>
+                      <div className="flex items-center gap-3">
+                          <Badge color={task.status === 'Completed' ? 'green' : 'blue'}>{task.status}</Badge>
+                          <button 
+                            onClick={() => handleDeleteTask(task.id)}
+                            className="text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                             <Trash2 size={14} />
+                          </button>
+                      </div>
                   </div>
               ))}
           </div>
@@ -327,7 +389,6 @@ export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, d
        </div>
     </Modal>
 
-    {/* Listing Modal */}
     <Modal isOpen={isListingModalOpen} onClose={() => setIsListingModalOpen(false)} title="AI Listing Generator">
         <div className="space-y-4">
           {!generatedListing ? (

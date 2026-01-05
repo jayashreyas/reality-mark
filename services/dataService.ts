@@ -366,6 +366,12 @@ class DataService {
     }
   }
 
+  async deleteDeal(id: string): Promise<void> {
+    let deals = await this.getDeals();
+    deals = deals.filter(d => d.id !== id);
+    this.save('deals', deals);
+  }
+
   async getAllOffers(): Promise<Offer[]> {
     return this.load<Offer[]>('offers', SEED_OFFERS);
   }

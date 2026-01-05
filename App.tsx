@@ -104,6 +104,14 @@ export default function App() {
     handleOpenDeal(newDeal.id);
   };
 
+  const handleDeleteDeal = async (id: string) => {
+    if (window.confirm("Are you sure you want to delete this deal? All data associated with it will be permanently removed.")) {
+      await dataService.deleteDeal(id);
+      if (selectedDealId === id) setSelectedDealId(null);
+      await refreshData();
+    }
+  };
+
   if (!currentUser) return <Login onLogin={handleLogin} />;
   if (isLoading && deals.length === 0) return <div className="h-screen w-screen flex items-center justify-center bg-gray-50 text-indigo-600 font-medium">Loading Reality Mark...</div>;
 
@@ -124,6 +132,7 @@ export default function App() {
           deals={deals} 
           tasks={tasks} 
           onOpenDeal={handleOpenDeal} 
+          onDeleteDeal={handleDeleteDeal}
           onNewDeal={() => setIsNewDealModalOpen(true)}
           onRefreshData={refreshData}
         />
