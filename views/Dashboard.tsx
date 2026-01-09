@@ -90,7 +90,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     <div className="p-8 overflow-y-auto h-full space-y-8">
       <header className="mb-8 flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Welcome back, {user.displayName.split(' ')[0]} 👋</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Welcome back, {user.displayName?.split(' ')[0] || 'Agent'} 👋</h2>
           <p className="text-gray-500 mt-2">Here's what's happening in your team today.</p>
         </div>
         <div className="flex gap-2">
@@ -179,7 +179,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       className="hover:bg-gray-50 cursor-pointer transition-colors"
                     >
                       <td className="px-6 py-4 font-medium text-gray-900">
-                        {deal.address}
+                        {deal.property_address}
                         <div className="text-xs text-gray-500 font-normal">{deal.clientName}</div>
                       </td>
                       <td className="px-6 py-4">
@@ -218,12 +218,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 const deal = deals.find(d => d.id === task.dealId);
                 return (
                   <Card key={task.id} className="hover:shadow-md transition-shadow cursor-pointer flex justify-between items-center p-4">
-                    <div onClick={() => onOpenDeal(task.dealId || '')}>
+                    <div onClick={() => task.dealId && onOpenDeal(task.dealId)}>
                       <div className="flex items-center gap-2 mb-1">
                         {task.priority === 'High' && <span className="w-2 h-2 rounded-full bg-red-500" />}
                         <span className="font-semibold text-gray-900">{task.title}</span>
                       </div>
-                      <p className="text-xs text-gray-500">{deal?.address || 'General Task'} • Due {new Date(task.dueDate).toLocaleDateString()}</p>
+                      <p className="text-xs text-gray-500">{deal?.property_address || 'General Task'} • Due {new Date(task.dueDate).toLocaleDateString()}</p>
                     </div>
                     {task.dealId && (
                       <Button variant="outline" size="sm" icon={<ArrowRight size={14} />} onClick={() => onOpenDeal(task.dealId!)}>

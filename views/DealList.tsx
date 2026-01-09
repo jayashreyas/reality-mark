@@ -17,18 +17,19 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
   const [searchTerm, setSearchTerm] = useState('');
   const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
 
-  const PIPELINE_STAGES: DealStatus[] = ['Active', 'Under Contract', 'Pending', 'Closed'];
+  // Expanded stages to include Leads and Cancelled for full visibility
+  const PIPELINE_STAGES: DealStatus[] = ['Lead', 'Active', 'Under Contract', 'Pending', 'Closed', 'Cancelled'];
 
-  const filteredDeals = deals.filter(d => 
-    d.property_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.clientName.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredDeals = (deals || []).filter(d => 
+    (d.property_address?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (d.clientName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   const getDealsByStatus = (status: DealStatus) => 
     filteredDeals.filter(d => d.status === status);
 
   const formatCurrency = (val: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val);
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(val || 0);
 
   const handleStatusChange = async (deal: Deal, newStatus: DealStatus) => {
     await dataService.updateDealStatus(deal, newStatus);
@@ -41,7 +42,11 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
       className="bg-white border border-gray-200 rounded-xl p-4 mb-3 shadow-sm hover:shadow-md hover:border-indigo-300 transition-all cursor-pointer group relative"
     >
       <div className="flex justify-between items-start mb-2">
-        <Badge color={deal.status === 'Active' ? 'green' : deal.status === 'Closed' ? 'purple' : 'blue'}>
+        <Badge color={
+          deal.status === 'Active' ? 'green' : 
+          deal.status === 'Closed' ? 'purple' : 
+          deal.status === 'Lead' ? 'yellow' : 'blue'
+        }>
           {deal.status}
         </Badge>
         <div className="text-[10px] font-bold text-gray-400 uppercase">{deal.property_type || 'Residential'}</div>
@@ -51,7 +56,7 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
         {deal.property_address}
       </h4>
       <div className="flex items-center text-xs text-gray-500 mb-3">
-        <MapPin size={12} className="mr-1" /> {deal.city}, {deal.state || 'PA'}
+        <MapPin size={12} className="mr-1" /> {deal.city || 'N/A'}, {deal.state || 'N/A'}
       </div>
 
       <div className="grid grid-cols-2 border-t border-gray-50 pt-3">
@@ -88,20 +93,19 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
             <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
             <input 
               type="text" 
-              placeholder="Search address..." 
+              placeholder="Search address or client..." 
               className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-64 bg-white text-gray-900"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           
-          <Button 
-            variant="outline" 
-            icon={<Sparkles size={18} className="text-indigo-600"/>} 
+          <button 
             onClick={() => setIsLookupModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shadow-sm gap-2"
           >
-            Add by Address
-          </Button>
+            <Sparkles size={18} className="text-indigo-600"/> Add by Address
+          </button>
 
           <Button icon={<Plus size={18}/>} onClick={onNewDeal}>
             New Deal

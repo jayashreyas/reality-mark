@@ -98,7 +98,7 @@ export const MyTasks: React.FC<MyTasksProps> = ({ tasks, deals, user, teamMember
     const headers = "Title,Status,Priority,Due Date,Assigned To,Deal";
     const rows = filteredTasks.map(t => {
       const deal = deals.find(d => d.id === t.dealId);
-      return `"${t.title}",${t.status},${t.priority},${new Date(t.dueDate).toLocaleDateString()},"${t.assignedToName}","${deal ? deal.address : ''}"`;
+      return `"${t.title}",${t.status},${t.priority},${new Date(t.dueDate).toLocaleDateString()},"${t.assignedToName}","${deal ? deal.property_address : ''}"`;
     });
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join('\n');
     const link = document.createElement("a");
@@ -133,7 +133,7 @@ export const MyTasks: React.FC<MyTasksProps> = ({ tasks, deals, user, teamMember
                     <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
                     <input 
                         type="text" 
-                        placeholder="Search..." 
+                        placeholder="Search tasks..." 
                         className="w-full pl-9 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-shadow text-gray-900"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -272,7 +272,7 @@ export const MyTasks: React.FC<MyTasksProps> = ({ tasks, deals, user, teamMember
                >
                   <option value="">None</option>
                   {deals.map(d => (
-                     <option key={d.id} value={d.id}>{d.address}</option>
+                     <option key={d.id} value={d.id}>{d.property_address}</option>
                   ))}
                </select>
             </InputGroup>

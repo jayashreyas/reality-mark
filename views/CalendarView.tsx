@@ -134,7 +134,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
     setModalMode('edit');
     setEditingTask(task);
     setFormTitle(task.title);
-    setFormDealId(task.dealId);
+    setFormDealId(task.dealId || '');
     setFormDate(new Date(task.dueDate).toISOString().split('T')[0]);
     setFormAssignee(task.assignedToName);
     setFormPriority(task.priority);
@@ -301,7 +301,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
                                 <h4 className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">{task.title}</h4>
                                 <div className="flex items-center gap-2 mt-1">
                                 <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
-                                    {deal?.address || 'Unknown Deal'}
+                                    {deal?.property_address || 'General Task'}
                                 </span>
                                 <span className="text-xs text-gray-400">• Assigned to {task.assignedToName}</span>
                                 </div>
@@ -415,7 +415,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ tasks, deals, teamMe
               disabled={deals.length === 0}
             >
               {deals.map(d => (
-                <option key={d.id} value={d.id}>{d.address} - {d.clientName}</option>
+                <option key={d.id} value={d.id}>{d.property_address} - {d.clientName}</option>
               ))}
               {deals.length === 0 && <option value="">No deals available</option>}
             </select>
