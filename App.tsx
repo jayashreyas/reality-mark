@@ -74,11 +74,12 @@ export default function App() {
     if (!newDealClient || !newDealAddress || !currentUser) return;
     setIsLoading(true);
     const newDeal = await dataService.createDeal({
-      clientName: newDealClient,
-      property_address: newDealAddress,
+      client_name: newDealClient,
+      address: newDealAddress,
       primaryAgentId: currentUser.id,
       primaryAgentName: currentUser.displayName,
-      status: 'Active'
+      status: 'Active',
+      transaction_type: 'Sale'
     });
     setNewDealClient('');
     setNewDealAddress('');
@@ -169,15 +170,15 @@ export default function App() {
         />
       )}
 
-      <Modal isOpen={isNewDealModalOpen} onClose={() => setIsNewDealModalOpen(false)} title="New Transaction">
+      <Modal isOpen={isNewDealModalOpen} onClose={() => setIsNewDealModalOpen(false)} title="Manual Transaction Entry">
         <div className="space-y-4">
           <InputGroup label="Primary Client Name">
-            <input className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900" value={newDealClient} onChange={e => setNewDealClient(e.target.value)} />
+            <input className="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-gray-900" value={newDealClient} onChange={e => setNewDealClient(e.target.value)} />
           </InputGroup>
           <InputGroup label="Property Address">
-            <input className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900" value={newDealAddress} onChange={e => setNewDealAddress(e.target.value)} />
+            <input className="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-gray-900" value={newDealAddress} onChange={e => setNewDealAddress(e.target.value)} />
           </InputGroup>
-          <Button className="w-full" onClick={handleCreateDeal}>Open Deal Room</Button>
+          <Button className="w-full rounded-xl py-3 font-bold" onClick={handleCreateDeal}>Open Deal Room</Button>
         </div>
       </Modal>
     </Layout>

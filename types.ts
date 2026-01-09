@@ -38,43 +38,29 @@ export interface DealDocument {
 
 export interface Deal {
   id: string;
-  mlsNumber?: string;
-  property_address: string;
+  address: string;
   city?: string;
   state?: string;
   zip?: string;
-  property_type?: string;
+  status: DealStatus;
+  transaction_type: DealType;
+  client_name: string;
+  price: number;
   beds?: number;
   baths?: number;
-  lot_size?: string;
-  year_built?: number;
-  owner_name?: string;
-  price: number;
-  status: DealStatus;
+  property_type?: string;
   
-  // Coordinates
-  latitude?: number;
-  longitude?: number;
-
-  // Dates
-  contract_date?: string;   // ISO String (YYYY-MM-DD)
-  settlement_date?: string; // ISO String (YYYY-MM-DD)
-  createdAt: string;
-  updatedAt: string;
+  // Dates (Stored as ISO Strings YYYY-MM-DD for consistency with input[type=date])
+  listed_date?: string; 
+  contract_date?: string;
+  settlement_date?: string;
 
   // Financials
-  commission_percent: number; 
+  commission_rate: number; 
   commission_amount: number;
 
-  // Relations
-  primaryAgentId: string;
-  primaryAgentName: string;
-  clientName: string;
-  type: DealType;
+  // AI & Metadata
   notes?: string;
-  documents: DealDocument[];
-  
-  // AI Insights
   ai_summary?: {
     ownership_insights: string;
     market_positioning: string;
@@ -82,14 +68,23 @@ export interface Deal {
     investment_score: number;
     raw_text: string;
   };
-
-  // Full Record Data
   raw_data?: {
     source: string;
     parcel_id?: string;
     confidence_score: number;
     api_response: any;
   };
+  
+  // Relations/System
+  primaryAgentId: string;
+  primaryAgentName: string;
+  createdAt: string;
+  updatedAt: string;
+  documents: DealDocument[];
+  
+  // Coordinates for maps (Legacy/Optional)
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface PropertyLookupResult {

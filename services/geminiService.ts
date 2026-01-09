@@ -28,7 +28,8 @@ export const getDailyBriefing = async (data: CrmData): Promise<string> => {
       🟢 Optional
 
       DATA:
-      Deals: ${JSON.stringify(data.deals.map(d => ({ id: d.id, address: d.property_address, status: d.status, type: d.type })))}
+      // FIX: Changed d.property_address to d.address and d.type to d.transaction_type
+      Deals: ${JSON.stringify(data.deals.map(d => ({ id: d.id, address: d.address, status: d.status, type: d.transaction_type })))}
       Offers: ${JSON.stringify(data.offers.map(o => ({ status: o.status, amount: o.amount, property: o.propertyAddress })))}
       Tasks: ${JSON.stringify(data.tasks.filter(t => t.status !== 'Completed').map(t => ({ title: t.title, due: t.dueDate, priority: t.priority })))}
       Contacts (last contacted): ${JSON.stringify(data.contacts.map(c => ({ name: c.name, last: c.lastContacted, type: c.type })))}
@@ -51,12 +52,13 @@ export const getDailyBriefing = async (data: CrmData): Promise<string> => {
 export const getDealSummary = async (deal: Deal): Promise<string> => {
   try {
     const ai = getAI();
+    // FIX: Changed deal.property_address to deal.address, deal.clientName to deal.client_name, and deal.type to deal.transaction_type
     const prompt = `Summarize the status of this real estate transaction for the agent in a professional, encouraging paragraph:
-    Address: ${deal.property_address}
-    Client: ${deal.clientName}
+    Address: ${deal.address}
+    Client: ${deal.client_name}
     Price: $${deal.price.toLocaleString()}
     Status: ${deal.status}
-    Type: ${deal.type}
+    Type: ${deal.transaction_type}
     Notes: ${deal.notes || 'No notes'}
     `;
 
@@ -300,10 +302,11 @@ export const analyzeCsvMapping = async (headers: string[], sampleRows: any[]): P
 export const generateCounterOffer = async (offer: Offer, deal?: Deal): Promise<string> => {
   try {
     const ai = getAI();
+    // FIX: Changed deal.property_address to deal.address
     const prompt = `Draft a polite but firm counter-offer email from a listing agent to a buyer's agent.
     Buyer: ${offer.clientName}
     Offered: $${offer.amount.toLocaleString()}
-    Property: ${offer.propertyAddress || deal?.property_address}
+    Property: ${offer.propertyAddress || deal?.address}
     Listing Price: $${deal?.price.toLocaleString() || 'N/A'}
     Notes: ${offer.notes || 'Standard counter'}
     `;
@@ -326,13 +329,14 @@ export const queryCRM = async (query: string, data: CrmData): Promise<string> =>
     const context = {
       systemTime: new Date().toISOString(),
       user: { name: data.user.displayName, role: data.user.role },
+      // FIX: Changed d.property_address to d.address, d.clientName to d.client_name, and d.type to d.transaction_type
       deals: data.deals.map(d => ({ 
           id: d.id, 
-          address: d.property_address, 
-          client: d.clientName, 
+          address: d.address, 
+          client: d.client_name, 
           status: d.status, 
           price: d.price, 
-          type: d.type,
+          type: d.transaction_type,
           createdAt: d.createdAt,
           updatedAt: d.updatedAt
       })),

@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Deal, Task, Update, User, Offer, DealStatus, OfferStatus } from '../types';
+import { Deal, Task, User, Offer, DealStatus, DealType } from '../types';
 import { Badge, Button, Modal, InputGroup } from '../components/Shared';
 import { 
   Briefcase, DollarSign, Sparkles, FileText, CheckSquare, 
   Database, Home, Calendar, Users, Upload, Trash2, ArrowRight,
-  TrendingUp, AlertCircle, CheckCircle2, ShieldCheck, Target, AlertTriangle, User as UserIcon
+  TrendingUp, AlertCircle, CheckCircle2, ShieldCheck, Target, AlertTriangle, User as UserIcon, Save, Info
 } from 'lucide-react';
 import { dataService } from '../services/dataService';
 import { getDealSummary } from '../services/geminiService';
@@ -22,86 +22,189 @@ interface DealRoomProps {
 export const DealRoomModal: React.FC<DealRoomProps> = ({ 
   isOpen, onClose, deal, user, onRefreshData, onDeleteDeal 
 }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'ai-insights' | 'property' | 'offers' | 'tasks' | 'full-record'>('overview');
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [aiSummary, setAiSummary] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'record' | 'ai-insights' | 'offers' | 'tasks'>('record');
+  const [formData, setFormData] = useState<Deal>(deal);
+  const [isSaving, setIsSaving] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
-    if (isOpen) {
-      loadDealData();
-    }
-  }, [isOpen, deal.id]);
+    setFormData(deal);
+  }, [deal]);
 
-  const loadDealData = async () => {
-    const [allOffers, allTasks] = await Promise.all([
-      dataService.getOffers(deal.id),
-      dataService.getTasks()
-    ]);
-    setOffers(allOffers);
-    setTasks(allTasks.filter(t => t.dealId === deal.id));
+  const handleInputChange = (field: keyof Deal, value: any) => {
+    setFormData(prev => {
+      const next = { ...prev, [field]: value };
+      // Auto-calculate commission if price or rate changes
+      if (field === 'price' || field === 'commission_rate') {
+          next.commission_amount = (next.price || 0) * ((next.commission_rate || 0) / 100);
+      }
+      return next;
+    });
   };
 
-  const handleAiSummarize = async () => {
-    setIsAiLoading(true);
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
-      const summary = await getDealSummary(deal);
-      setAiSummary(summary);
+      await dataService.updateDeal(formData);
+      onRefreshData();
+      alert("Deal record updated successfully.");
     } catch (e) {
-      setAiSummary("Could not generate summary.");
+      alert("Error saving deal. Check connection.");
     } finally {
-      setIsAiLoading(false);
+      setIsSaving(false);
     }
   };
 
-  const formatCurrency = (val: number) => 
-    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+  const handleAiAssistant = async () => {
+      setAiLoading(true);
+      try {
+          const summary = await getDealSummary(formData);
+          // Suggest into notes without overwriting key fields
+          handleInputChange('notes', (formData.notes ? formData.notes + '\n\n' : '') + 'AI SUMMARY: ' + summary);
+      } catch (e) {
+          alert("Nexus AI is temporarily unavailable.");
+      } finally {
+          setAiLoading(false);
+      }
+  };
 
-  const renderOverview = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
-          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Contract Price</p>
-          <p className="text-xl font-bold text-emerald-900">{formatCurrency(deal.price)}</p>
-        </div>
-        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
-          <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Potential Commission</p>
-          <p className="text-xl font-bold text-indigo-900">{formatCurrency(deal.commission_amount)}</p>
-        </div>
-        <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl">
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Commission Rate</p>
-          <p className="text-xl font-bold text-gray-900">{deal.commission_percent}%</p>
-        </div>
+  const renderRecordForm = () => (
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <div className="grid grid-cols-2 gap-8">
+        {/* Basic Property Info */}
+        <section className="space-y-4">
+            <h4 className="font-bold text-gray-900 border-b pb-2 flex items-center gap-2">
+                <Home size={18} className="text-indigo-600"/> Property Details
+            </h4>
+            <InputGroup label="Property Address">
+                <input 
+                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-gray-900"
+                    value={formData.address}
+                    onChange={e => handleInputChange('address', e.target.value)}
+                />
+            </InputGroup>
+            <div className="grid grid-cols-3 gap-3">
+                <InputGroup label="City">
+                    <input className="w-full border border-gray-300 rounded-lg p-2 bg-white" value={formData.city} onChange={e => handleInputChange('city', e.target.value)}/>
+                </InputGroup>
+                <InputGroup label="State">
+                    <input className="w-full border border-gray-300 rounded-lg p-2 bg-white" value={formData.state} onChange={e => handleInputChange('state', e.target.value)}/>
+                </InputGroup>
+                <InputGroup label="Zip">
+                    <input className="w-full border border-gray-300 rounded-lg p-2 bg-white" value={formData.zip} onChange={e => handleInputChange('zip', e.target.value)}/>
+                </InputGroup>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <InputGroup label="Property Type">
+                    <input className="w-full border border-gray-300 rounded-lg p-2 bg-white" value={formData.property_type} onChange={e => handleInputChange('property_type', e.target.value)}/>
+                </InputGroup>
+                <div className="grid grid-cols-2 gap-2">
+                    <InputGroup label="Beds">
+                        <input type="number" className="w-full border border-gray-300 rounded-lg p-2 bg-white" value={formData.beds} onChange={e => handleInputChange('beds', Number(e.target.value))}/>
+                    </InputGroup>
+                    <InputGroup label="Baths">
+                        <input type="number" step="0.5" className="w-full border border-gray-300 rounded-lg p-2 bg-white" value={formData.baths} onChange={e => handleInputChange('baths', Number(e.target.value))}/>
+                    </InputGroup>
+                </div>
+            </div>
+        </section>
+
+        {/* Transaction Info */}
+        <section className="space-y-4">
+            <h4 className="font-bold text-gray-900 border-b pb-2 flex items-center gap-2">
+                <Target size={18} className="text-indigo-600"/> Transaction Status
+            </h4>
+            <div className="grid grid-cols-2 gap-4">
+                <InputGroup label="Deal Status">
+                    <select 
+                        className="w-full border border-gray-300 rounded-lg p-2.5 bg-white font-bold text-indigo-700"
+                        value={formData.status}
+                        onChange={e => handleInputChange('status', e.target.value as DealStatus)}
+                    >
+                        <option value="Lead">Lead</option>
+                        <option value="Active">Active</option>
+                        <option value="Under Contract">Under Contract</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Closed">Closed</option>
+                        <option value="Lost">Lost</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </InputGroup>
+                <InputGroup label="Trans. Type">
+                    <select className="w-full border border-gray-300 rounded-lg p-2.5 bg-white" value={formData.transaction_type} onChange={e => handleInputChange('transaction_type', e.target.value as DealType)}>
+                        <option value="Sale">Sale</option>
+                        <option value="Rental">Rental</option>
+                    </select>
+                </InputGroup>
+            </div>
+            <InputGroup label="Primary Client Name">
+                <input className="w-full border border-gray-300 rounded-lg p-2.5 bg-white" value={formData.client_name} onChange={e => handleInputChange('client_name', e.target.value)}/>
+            </InputGroup>
+            <div className="grid grid-cols-3 gap-3">
+                 <InputGroup label="Listed On">
+                    <input type="date" className="w-full border border-gray-300 rounded-lg p-2 text-xs" value={formData.listed_date} onChange={e => handleInputChange('listed_date', e.target.value)}/>
+                </InputGroup>
+                 <InputGroup label="Under Contract">
+                    <input type="date" className="w-full border border-gray-300 rounded-lg p-2 text-xs" value={formData.contract_date} onChange={e => handleInputChange('contract_date', e.target.value)}/>
+                </InputGroup>
+                 <InputGroup label="Settlement (Closed)">
+                    <input type="date" className="w-full border border-gray-300 rounded-lg p-2 text-xs" value={formData.settlement_date} onChange={e => handleInputChange('settlement_date', e.target.value)}/>
+                </InputGroup>
+            </div>
+        </section>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-          <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2"><Calendar size={16}/> Transaction Timeline</h4>
-          <Badge color={deal.status === 'Closed' ? 'purple' : 'blue'}>{deal.status}</Badge>
-        </div>
-        <div className="p-4 grid grid-cols-2 gap-x-8 gap-y-4">
-          <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase">Listed Date</label>
-            <p className="text-sm font-medium">{new Date(deal.createdAt).toLocaleDateString()}</p>
-          </div>
-          <div>
-            <label className="text-[10px] font-bold text-gray-400 uppercase">Settlement Date</label>
-            <p className="text-sm font-bold text-indigo-600">{deal.settlement_date ? new Date(deal.settlement_date).toLocaleDateString() : 'PENDING'}</p>
-          </div>
-        </div>
+      <div className="grid grid-cols-2 gap-8">
+          {/* Financials */}
+          <section className="space-y-4">
+            <h4 className="font-bold text-gray-900 border-b pb-2 flex items-center gap-2">
+                <DollarSign size={18} className="text-emerald-600"/> Financials
+            </h4>
+            <InputGroup label="Contract Price ($)">
+                <input 
+                    type="number" 
+                    className="w-full border border-gray-300 rounded-lg p-2.5 bg-emerald-50/20 text-xl font-bold text-emerald-900"
+                    value={formData.price}
+                    onChange={e => handleInputChange('price', Number(e.target.value))}
+                />
+            </InputGroup>
+            <div className="grid grid-cols-2 gap-4">
+                <InputGroup label="Comm. Rate (%)">
+                    <input type="number" step="0.1" className="w-full border border-gray-300 rounded-lg p-2 bg-white" value={formData.commission_rate} onChange={e => handleInputChange('commission_rate', Number(e.target.value))}/>
+                </InputGroup>
+                <InputGroup label="Comm. Amount ($)">
+                    <input disabled className="w-full border border-gray-200 rounded-lg p-2 bg-gray-50 font-bold text-gray-500" value={new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(formData.commission_amount)}/>
+                </InputGroup>
+            </div>
+          </section>
+
+          {/* Notes & AI */}
+          <section className="space-y-4">
+            <div className="flex justify-between items-center border-b pb-2">
+                <h4 className="font-bold text-gray-900 flex items-center gap-2">
+                    <FileText size={18} className="text-indigo-600"/> Internal Notes
+                </h4>
+                <Button variant="outline" size="sm" onClick={handleAiAssistant} disabled={aiLoading} icon={<Sparkles size={14} className="text-purple-600" />}>
+                    {aiLoading ? 'Thinking...' : 'AI Summary'}
+                </Button>
+            </div>
+            <textarea 
+                className="w-full h-40 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-gray-900"
+                placeholder="Log contingencies, buyer mood, or special requests..."
+                value={formData.notes}
+                onChange={e => handleInputChange('notes', e.target.value)}
+            />
+          </section>
       </div>
 
-      <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl relative overflow-hidden group">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-bold text-purple-900 flex items-center gap-2"><Sparkles size={16}/> Nexus Activity Summary</h4>
-          <Button size="sm" variant="outline" onClick={handleAiSummarize} disabled={isAiLoading}>
-            {isAiLoading ? 'Analysing...' : 'Generate'}
-          </Button>
-        </div>
-        <div className="text-sm text-purple-800 leading-relaxed italic">
-          {aiSummary || "Click to generate a narrative summary of this transaction's progress."}
-        </div>
+      <div className="pt-6 border-t border-gray-100 flex justify-between items-center bg-gray-50 -mx-4 -mb-4 p-4">
+          <Button variant="danger" icon={<Trash2 size={18}/>} onClick={() => onDeleteDeal(deal.id)}>Archived Deal</Button>
+          <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose}>Discard Changes</Button>
+              <Button onClick={handleSave} disabled={isSaving} icon={<Save size={18}/>}>
+                  {isSaving ? 'Updating Database...' : 'Save Record'}
+              </Button>
+          </div>
       </div>
     </div>
   );
@@ -152,69 +255,25 @@ export const DealRoomModal: React.FC<DealRoomProps> = ({
                     <p className="text-sm text-gray-700 leading-relaxed">{deal.ai_summary.negotiation_risks}</p>
                 </div>
             </div>
-
-            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5">
-                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-3">Executive Summary</h4>
-                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap italic">"{deal.ai_summary.raw_text}"</p>
-            </div>
-            
-            <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
-                <ShieldCheck size={12}/> Analysis generated using verified public records and Estated AVM data.
-            </div>
         </div>
     );
   };
-
-  const renderFullRecord = () => (
-    <div className="space-y-4">
-        <div className="bg-slate-900 text-white rounded-xl overflow-hidden border border-slate-700 shadow-2xl">
-        <div className="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
-            <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2"><Database size={14} className="text-indigo-400"/> Verified Property Metadata</h4>
-            <Badge color="green">Match Confirmed</Badge>
-        </div>
-        <div className="p-4 max-h-[50vh] overflow-y-auto font-mono text-[11px] leading-loose">
-            {deal.raw_data ? (
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4 border-b border-slate-800 pb-4 mb-4">
-                        <div>
-                            <span className="text-slate-500 block">SOURCE</span>
-                            <span className="text-indigo-300 font-bold">{deal.raw_data.source}</span>
-                        </div>
-                        <div>
-                            <span className="text-slate-500 block">CONFIDENCE SCORE</span>
-                            <span className="text-emerald-400 font-bold">{(deal.raw_data.confidence_score * 100).toFixed(0)}%</span>
-                        </div>
-                    </div>
-                    {Object.entries(deal.raw_data.api_response || {}).map(([k, v]) => (
-                    <div key={k} className="grid grid-cols-2 border-b border-slate-800/50 py-1.5 hover:bg-slate-800/50 px-2 transition-colors">
-                        <span className="text-slate-500 font-bold opacity-80 uppercase tracking-tighter">{k.replace(/_/g, ' ')}</span>
-                        <span className="text-emerald-400 truncate pl-4" title={String(v)}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
-                    </div>
-                    ))}
-                </div>
-            ) : <div className="text-slate-500 py-20 text-center italic">No raw metadata associated with this deal.</div>}
-        </div>
-        </div>
-    </div>
-  );
 
   return (
     <Modal 
       isOpen={isOpen} 
       onClose={onClose} 
-      title={deal.property_address} 
+      title={deal.address} 
       maxWidth="max-w-6xl"
     >
       <div className="flex h-[80vh]">
         {/* Sidebar Tabs */}
         <div className="w-56 border-r border-gray-100 pr-4 flex flex-col gap-1">
           {[
-            { id: 'overview', label: 'Overview', icon: <Briefcase size={16}/> },
+            { id: 'record', label: 'Full Record', icon: <Database size={16}/> },
             { id: 'ai-insights', label: 'AI Insights', icon: <Sparkles size={16}/> },
-            { id: 'property', label: 'Property Specs', icon: <Home size={16}/> },
             { id: 'offers', label: 'Offer Board', icon: <TrendingUp size={16}/> },
             { id: 'tasks', label: 'Checklist', icon: <CheckSquare size={16}/> },
-            { id: 'full-record', label: 'Full Record', icon: <Database size={16}/> },
           ].map(tab => (
             <button
               key={tab.id}
@@ -227,39 +286,21 @@ export const DealRoomModal: React.FC<DealRoomProps> = ({
             </button>
           ))}
           
-          <div className="mt-auto pt-4 border-t border-gray-100">
-             <Button variant="danger" size="sm" className="w-full rounded-xl" icon={<Trash2 size={14}/>} onClick={() => onDeleteDeal(deal.id)}>Archived Deal</Button>
+          <div className="mt-8 p-3 bg-blue-50 rounded-xl border border-blue-100">
+              <p className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-1 flex items-center gap-1"><Info size={10}/> Data Provenance</p>
+              <p className="text-[10px] text-blue-800 leading-tight">Last modified by {deal.primaryAgentName} on {new Date(deal.updatedAt).toLocaleString()}</p>
           </div>
         </div>
 
         {/* Content Area */}
         <div className="flex-1 pl-8 overflow-y-auto custom-scrollbar">
-          {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'record' && renderRecordForm()}
           {activeTab === 'ai-insights' && renderAIInsights()}
-          {activeTab === 'full-record' && renderFullRecord()}
-          {activeTab === 'property' && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-6">
-                <div className="grid grid-cols-2 gap-8">
-                    <InputGroup label="Property Type"><p className="text-gray-900 font-bold">{deal.property_type || 'Residential'}</p></InputGroup>
-                    <InputGroup label="Year Built"><p className="text-gray-900 font-bold">{deal.year_built || 'N/A'}</p></InputGroup>
-                    <div className="col-span-2 grid grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
-                        <div className="text-center">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase">Beds</span>
-                            <p className="text-2xl font-black text-gray-900">{deal.beds || 0}</p>
-                        </div>
-                        <div className="text-center">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase">Baths</span>
-                            <p className="text-2xl font-black text-gray-900">{deal.baths || 0}</p>
-                        </div>
-                        <div className="text-center col-span-2">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase">Lot Size</span>
-                            <p className="text-lg font-bold text-gray-900">{deal.lot_size || 'N/A'}</p>
-                        </div>
-                    </div>
-                    <InputGroup label="City / Zip"><p className="text-gray-900 font-medium">{deal.city}, {deal.zip}</p></InputGroup>
-                    <InputGroup label="Registered Owner"><p className="text-gray-900 font-medium">{deal.owner_name}</p></InputGroup>
-                </div>
-              </div>
+          {activeTab === 'offers' && (
+              <div className="py-20 text-center text-gray-400 italic">Offer Board integration pending backend sync.</div>
+          )}
+           {activeTab === 'tasks' && (
+              <div className="py-20 text-center text-gray-400 italic">Checklist module loaded via primary navigation.</div>
           )}
         </div>
       </div>

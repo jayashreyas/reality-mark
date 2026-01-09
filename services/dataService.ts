@@ -9,8 +9,7 @@ const SEED_TEAM_MEMBERS: User[] = [
 const SEED_DEALS: Deal[] = [
   {
     id: 'd1',
-    mlsNumber: 'MLS-230045',
-    property_address: '124 Maple Ave',
+    address: '124 Maple Ave',
     city: 'Springfield',
     state: 'PA',
     zip: '19064',
@@ -19,12 +18,12 @@ const SEED_DEALS: Deal[] = [
     baths: 2.5,
     price: 550000,
     status: 'Active',
-    commission_percent: 2.5,
+    transaction_type: 'Sale',
+    client_name: 'Sarah Jenkins',
+    commission_rate: 2.5,
     commission_amount: 13750,
     primaryAgentId: 'u1',
     primaryAgentName: 'Shreyas',
-    clientName: 'Sarah Jenkins',
-    type: 'Sale',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     documents: [],
@@ -110,30 +109,29 @@ class DataService {
     const deals = await this.getDeals();
     const newDeal: Deal = { 
       id: `d${Date.now()}`,
-      property_address: deal.property_address || 'Unnamed',
+      address: deal.address || 'Unnamed',
       city: deal.city || '',
       state: deal.state || '',
       zip: deal.zip || '',
       property_type: deal.property_type || '',
       beds: deal.beds || 0,
       baths: deal.baths || 0,
-      lot_size: deal.lot_size || '',
-      year_built: deal.year_built || 0,
-      owner_name: deal.owner_name || '',
       price: deal.price || 0,
       status: deal.status || 'Active',
-      commission_percent: deal.commission_percent || 2.5,
-      commission_amount: (deal.price || 0) * ((deal.commission_percent || 2.5) / 100),
+      transaction_type: deal.transaction_type || 'Sale',
+      client_name: deal.client_name || 'Unknown',
+      commission_rate: deal.commission_rate || 2.5,
+      commission_amount: (deal.price || 0) * ((deal.commission_rate || 2.5) / 100),
       primaryAgentId: deal.primaryAgentId || 'u1',
       primaryAgentName: deal.primaryAgentName || 'Admin',
-      clientName: deal.clientName || deal.owner_name || 'Unnamed',
-      type: deal.type || 'Sale',
+      listed_date: deal.listed_date || new Date().toISOString().split('T')[0],
+      contract_date: deal.contract_date,
+      settlement_date: deal.settlement_date,
+      notes: deal.notes || '',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       documents: [],
       raw_data: deal.raw_data,
-      latitude: deal.latitude,
-      longitude: deal.longitude,
       ai_summary: deal.ai_summary
     };
     deals.push(newDeal);
@@ -141,13 +139,26 @@ class DataService {
     return newDeal;
   }
 
+  async updateDeal(deal: Deal): Promise<Deal> {
+    const deals = await this.getDeals();
+    const index = deals.findIndex(d => d.id === deal.id);
+    if (index !== -1) {
+      const updatedDeal = { 
+        ...deal, 
+        commission_amount: deal.price * (deal.commission_rate / 100),
+        updatedAt: new Date().toISOString() 
+      };
+      deals[index] = updatedDeal;
+      this.save('deals', deals);
+      return updatedDeal;
+    }
+    throw new Error("Deal not found");
+  }
+
   async lookupProperty(params: { address: string, lat: number, lng: number }): Promise<PropertyLookupResult> {
-    // SIMULATED EXTERNAL API CALL (e.g. to Estated)
-    await new Promise(resolve => setTimeout(resolve, 1800));
-    
-    // In a real app, this route would be /api/property/lookup
+    // SIMULATED EXTERNAL API CALL
+    await new Promise(resolve => setTimeout(resolve, 1500));
     const isMockMatch = params.address.toLowerCase().includes('pennsylvania') || params.address.toLowerCase().includes('washington');
-    
     return {
         address: params.address,
         city: isMockMatch ? 'Washington' : 'Philadelphia',
@@ -157,23 +168,17 @@ class DataService {
         beds: 4,
         baths: 3,
         lot_size: '0.25 Acres',
-        year_built: 1792,
-        owner_name: isMockMatch ? 'Government of USA' : 'Miller Holdings LLC',
-        last_sale_price: 1250000,
-        last_sale_date: '2015-08-22',
-        estimated_value: 1850000,
+        year_built: 1985,
+        owner_name: isMockMatch ? 'Miller Estates LLC' : 'John Q. Public',
+        last_sale_price: 450000,
+        last_sale_date: '2019-05-12',
+        estimated_value: 625000,
         parcel_id: 'BK-120-9912-X',
         latitude: params.lat,
         longitude: params.lng,
         confidence_score: 0.98,
-        api_source: 'Estated (Tier 1 Verified)',
-        raw_response: {
-            zoning: 'Residential - R3',
-            census_tract: '12.01',
-            tax_amount: 14500,
-            mortgage_indicator: true,
-            equity_estimate: 0.65
-        }
+        api_source: 'Estated (Verified)',
+        raw_response: { zoning: 'R3', tax_amount: 5500 }
     };
   }
 
@@ -192,13 +197,17 @@ class DataService {
     const index = deals.findIndex(d => d.id === deal.id);
     if (index !== -1) {
       const updatedDeal = { ...deals[index], status: newStatus, updatedAt: new Date().toISOString() };
+      // If closing, set settlement date if not present
+      if (newStatus === 'Closed' && !updatedDeal.settlement_date) {
+          updatedDeal.settlement_date = new Date().toISOString().split('T')[0];
+      }
       deals[index] = updatedDeal;
       this.save('deals', deals);
     }
   }
 
   async deleteDeal(id: string): Promise<void> {
-    const currentDeals = this.load('deals', SEED_DEALS);
+    const currentDeals = await this.getDeals();
     const updatedDeals = currentDeals.filter(d => d.id !== id);
     this.save('deals', updatedDeals);
   }
@@ -235,7 +244,6 @@ class DataService {
     return newOffer;
   }
 
-  // --- Fix: Added missing offer management methods ---
   async updateOffer(offer: Offer): Promise<Offer> {
     const offers = this.load<Offer[]>('offers', []);
     const index = offers.findIndex(o => o.id === offer.id);
@@ -305,7 +313,6 @@ class DataService {
     this.save('tasks', filtered);
   }
 
-  // --- Fix: Added missing Update/Activity methods ---
   async getUpdates(): Promise<Update[]> {
     return this.load('updates', []);
   }
@@ -352,7 +359,6 @@ class DataService {
     return newContact;
   }
 
-  // --- Fix: Added missing Contact methods ---
   async addContacts(newContacts: Partial<Contact>[]): Promise<void> {
     for (const c of newContacts) {
       await this.addContact(c);
@@ -448,9 +454,8 @@ class DataService {
 
     return {
       deals: deals.filter(d => 
-        d.property_address.toLowerCase().includes(term) || 
-        d.clientName.toLowerCase().includes(term) ||
-        d.mlsNumber?.toLowerCase().includes(term)
+        d.address.toLowerCase().includes(term) || 
+        d.client_name.toLowerCase().includes(term)
       ),
       contacts: contacts.filter(c => 
         c.name.toLowerCase().includes(term) || 
@@ -463,7 +468,6 @@ class DataService {
     };
   }
 
-  // --- Fix: Added missing Chat methods ---
   async getChannels(): Promise<ChatChannel[]> {
     return this.load('channels', [
       { id: 'general', name: 'general', type: 'public' },
@@ -515,7 +519,6 @@ class DataService {
     return [];
   }
 
-  // --- Fix: Added missing Smart Import method ---
   async processSmartImport(records: SmartImportRecord[]): Promise<SmartImportSummary> {
     let dealsCount = 0;
     let leadsCount = 0;
@@ -524,15 +527,14 @@ class DataService {
     for (const record of records) {
       if (record.record_type === 'ClosedDeal' || record.record_type === 'ActiveDeal') {
         await this.createDeal({
-          property_address: record.data.address || 'Imported Address',
+          address: record.data.address || 'Imported Address',
           city: record.data.city || '',
           zip: record.data.zip || '',
           property_type: record.data.property_type || 'Residential',
           beds: record.data.bedrooms || 0,
           price: record.data.sale_price || 0,
           status: record.record_type === 'ClosedDeal' ? 'Closed' : 'Active',
-          owner_name: record.data.full_name,
-          clientName: record.data.full_name,
+          client_name: record.data.full_name,
           notes: record.data.notes
         });
         dealsCount++;
