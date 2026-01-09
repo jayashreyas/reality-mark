@@ -1,420 +1,268 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Deal, Task, Update, User, TaskStatus, Offer, OfferStatus } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Deal, Task, Update, User, Offer, DealStatus, OfferStatus } from '../types';
 import { Badge, Button, Modal, InputGroup } from '../components/Shared';
-import { Briefcase, DollarSign, Sparkles, Phone, FileText, Send, PlusCircle, CheckSquare, Upload, Trash2 } from 'lucide-react';
+import { 
+  Briefcase, DollarSign, Sparkles, FileText, CheckSquare, 
+  Database, Home, Calendar, Users, Upload, Trash2, ArrowRight,
+  TrendingUp, AlertCircle, CheckCircle2, ShieldCheck, Target, AlertTriangle, User as UserIcon
+} from 'lucide-react';
 import { dataService } from '../services/dataService';
-import { generateListingDescription, summarizeDealActivity } from '../services/geminiService';
+import { getDealSummary } from '../services/geminiService';
 
-interface DealRoomModalProps {
+interface DealRoomProps {
   isOpen: boolean;
   onClose: () => void;
   deal: Deal;
   user: User;
-  teamMembers: User[];
-  tasks: Task[];
-  updates: Update[];
-  offers: Offer[];
   onRefreshData: () => void;
+  onDeleteDeal: (id: string) => void;
 }
 
-export const DealRoomModal: React.FC<DealRoomModalProps> = ({ isOpen, onClose, deal, user, teamMembers, tasks, updates, offers, onRefreshData }) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'tasks' | 'activity' | 'offers' | 'documents'>('details');
-  
-  // Listing Generator State
-  const [isListingModalOpen, setIsListingModalOpen] = useState(false);
-  const [genFeatures, setGenFeatures] = useState('');
-  const [genTone, setGenTone] = useState('Professional');
-  const [generatedListing, setGeneratedListing] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  // Editable fields local state
-  const [price, setPrice] = useState(deal.price);
-  const [commission, setCommission] = useState(deal.commissionRate);
-  const [clientName, setClientName] = useState(deal.clientName);
-  const [address, setAddress] = useState(deal.address);
-  const [mlsNumber, setMlsNumber] = useState(deal.mlsNumber || '');
-  const [category, setCategory] = useState(deal.category || '');
-
-  // Tasks State
-  const [newTaskTitle, setNewTaskTitle] = useState('');
-  const [newTaskAssignee, setNewTaskAssignee] = useState(user.displayName);
-  const [isAddingTask, setIsAddingTask] = useState(false);
-
-  // Activity State
-  const [newUpdateContent, setNewUpdateContent] = useState('');
-  const [newUpdateTag, setNewUpdateTag] = useState<'Note' | 'Call' | 'Email' | 'WhatsApp'>('Note');
-  const [aiSummary, setAiSummary] = useState<{summary: string, nextSteps: string[]} | null>(null);
-  const [isSummarizing, setIsSummarizing] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+export const DealRoomModal: React.FC<DealRoomProps> = ({ 
+  isOpen, onClose, deal, user, onRefreshData, onDeleteDeal 
+}) => {
+  const [activeTab, setActiveTab] = useState<'overview' | 'ai-insights' | 'property' | 'offers' | 'tasks' | 'full-record'>('overview');
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [aiSummary, setAiSummary] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-        setPrice(deal.price);
-        setCommission(deal.commissionRate);
-        setClientName(deal.clientName);
-        setAddress(deal.address);
-        setMlsNumber(deal.mlsNumber || '');
-        setCategory(deal.category || '');
+      loadDealData();
     }
-  }, [isOpen, deal]);
+  }, [isOpen, deal.id]);
 
-  useEffect(() => {
-    if (activeTab === 'activity' && scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [updates, activeTab, isOpen]);
-
-  const handleAddTask = async () => {
-    if (!newTaskTitle.trim()) return;
-    setIsAddingTask(true);
-    await dataService.createTask({
-      dealId: deal.id,
-      title: newTaskTitle,
-      assignedToName: newTaskAssignee || user.displayName,
-      priority: 'Normal',
-      status: 'To Do',
-      dueDate: new Date(Date.now() + 86400000 * 2).toISOString()
-    });
-    setNewTaskTitle('');
-    setIsAddingTask(false);
-    onRefreshData();
+  const loadDealData = async () => {
+    const [allOffers, allTasks] = await Promise.all([
+      dataService.getOffers(deal.id),
+      dataService.getTasks()
+    ]);
+    setOffers(allOffers);
+    setTasks(allTasks.filter(t => t.dealId === deal.id));
   };
 
-  const handleTaskStatusChange = async (task: Task, newStatus: TaskStatus) => {
-    await dataService.updateTask({ ...task, status: newStatus });
-    onRefreshData();
-  };
-
-  const handleDeleteTask = async (id: string) => {
-    if (window.confirm("Remove this task?")) {
-      await dataService.deleteTask(id);
-      onRefreshData();
-    }
-  };
-
-  const handleDeleteDeal = async () => {
-    if (window.confirm("Permanently delete this entire deal and all its history? This cannot be undone.")) {
-      await dataService.deleteDeal(deal.id);
-      onClose(); // Close the modal immediately
-      onRefreshData();
-    }
-  };
-
-  const handlePostUpdate = async () => {
-    if (!newUpdateContent.trim()) return;
-    await dataService.addUpdate({
-      dealId: deal.id,
-      content: newUpdateContent,
-      tag: newUpdateTag,
-      userId: user.id,
-      userName: user.displayName,
-    });
-    setNewUpdateContent('');
-    onRefreshData();
-  };
-
-  const handleAiSummary = async () => {
-    setIsSummarizing(true);
-    const result = await summarizeDealActivity(updates);
-    setAiSummary(result);
-    setIsSummarizing(false);
-  };
-
-  const handleUpdateDeal = async () => {
-    await dataService.updateDeal({ 
-      ...deal, 
-      price, 
-      commissionRate: commission,
-      clientName,
-      address,
-      mlsNumber,
-      category
-    });
-    onRefreshData();
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      await dataService.addDocument(deal.id, e.target.files[0]);
-      onRefreshData();
-    }
-  };
-
-  const handleGenerateListing = async () => {
-    setIsGenerating(true);
+  const handleAiSummarize = async () => {
+    setIsAiLoading(true);
     try {
-      const result = await generateListingDescription(deal.address, deal.type, genFeatures, genTone);
-      setGeneratedListing(result);
+      const summary = await getDealSummary(deal);
+      setAiSummary(summary);
     } catch (e) {
-      setGeneratedListing("Error generating listing.");
+      setAiSummary("Could not generate summary.");
+    } finally {
+      setIsAiLoading(false);
     }
-    setIsGenerating(false);
   };
 
-  const renderDetails = () => (
-      <div className="space-y-6 overflow-y-auto h-full p-1">
-          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-              <h4 className="text-sm font-bold text-gray-900 mb-4 flex items-center gap-2">
-                  <Briefcase size={16} /> Key Information
-              </h4>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                  <InputGroup label="MLS #">
-                    <input 
-                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        value={mlsNumber}
-                        onChange={(e) => setMlsNumber(e.target.value)}
-                        onBlur={handleUpdateDeal}
-                    />
-                  </InputGroup>
-                  <InputGroup label="Category">
-                    <input 
-                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        value={category}
-                        onChange={(e) => setCategory(e.target.value)}
-                        onBlur={handleUpdateDeal}
-                    />
-                  </InputGroup>
-                  <InputGroup label="Client Name">
-                    <input 
-                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
-                        onBlur={handleUpdateDeal}
-                    />
-                  </InputGroup>
-                  <InputGroup label="Property Address">
-                    <input 
-                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        value={address}
-                        onChange={(e) => setAddress(e.target.value)}
-                        onBlur={handleUpdateDeal}
-                    />
-                  </InputGroup>
-              </div>
-          </div>
+  const formatCurrency = (val: number) => 
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 
-          <div className="bg-emerald-50/50 p-4 rounded-lg border border-emerald-100">
-              <h4 className="text-sm font-bold text-emerald-900 mb-4 flex items-center gap-2">
-                  <DollarSign size={16} /> Financials
-              </h4>
-              <div className="grid grid-cols-2 gap-4">
-                  <InputGroup label="Deal Price">
-                    <div className="relative">
-                        <span className="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                        <input 
-                            type="number"
-                            className="w-full border border-gray-300 rounded-md pl-6 p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                            value={price}
-                            onChange={(e) => setPrice(Number(e.target.value))}
-                            onBlur={handleUpdateDeal}
-                        />
-                    </div>
-                  </InputGroup>
-                  <InputGroup label={`Commission ${deal.type === 'Sale' ? '(%)' : '($)'}`}>
-                     <input 
-                        type="number"
-                        className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                        value={commission}
-                        onChange={(e) => setCommission(Number(e.target.value))}
-                        onBlur={handleUpdateDeal}
-                    />
-                  </InputGroup>
-              </div>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <div className="flex gap-2">
-                <Button variant="outline" className="flex-1" icon={<Sparkles size={16}/>} onClick={() => setIsListingModalOpen(true)}>
-                    AI Listing Description
-                </Button>
-                <a 
-                    href={`https://wa.me/?text=Update on ${deal.address}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex-1 inline-flex items-center justify-center rounded-md font-medium transition-colors focus:outline-none h-10 px-4 py-2 text-sm bg-[#25D366] text-white hover:bg-[#128C7E]"
-                >
-                    <Phone size={16} className="mr-2" /> WhatsApp Client
-                </a>
-            </div>
-            {user.role === 'admin' && (
-                <Button variant="danger" icon={<Trash2 size={16} />} onClick={handleDeleteDeal} className="w-full">
-                    Delete Deal Room
-                </Button>
-            )}
-          </div>
+  const renderOverview = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-xl">
+          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest mb-1">Contract Price</p>
+          <p className="text-xl font-bold text-emerald-900">{formatCurrency(deal.price)}</p>
+        </div>
+        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl">
+          <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mb-1">Potential Commission</p>
+          <p className="text-xl font-bold text-indigo-900">{formatCurrency(deal.commission_amount)}</p>
+        </div>
+        <div className="bg-gray-50 border border-gray-200 p-4 rounded-xl">
+          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Commission Rate</p>
+          <p className="text-xl font-bold text-gray-900">{deal.commission_percent}%</p>
+        </div>
       </div>
-  );
 
-  const renderTasks = () => (
-      <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="p-4 border-b border-gray-100 bg-gray-50">
-              <div className="flex gap-2">
-                  <input 
-                    className="flex-1 border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
-                    placeholder="New task..."
-                    value={newTaskTitle}
-                    onChange={e => setNewTaskTitle(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && handleAddTask()}
-                  />
-                  <Button size="sm" onClick={handleAddTask} disabled={!newTaskTitle || isAddingTask}>Add</Button>
-              </div>
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
+          <h4 className="font-bold text-gray-900 text-sm flex items-center gap-2"><Calendar size={16}/> Transaction Timeline</h4>
+          <Badge color={deal.status === 'Closed' ? 'purple' : 'blue'}>{deal.status}</Badge>
+        </div>
+        <div className="p-4 grid grid-cols-2 gap-x-8 gap-y-4">
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Listed Date</label>
+            <p className="text-sm font-medium">{new Date(deal.createdAt).toLocaleDateString()}</p>
           </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
-              {tasks.length === 0 && <p className="text-center text-gray-400 py-10">No tasks found.</p>}
-              {tasks.map(task => (
-                  <div key={task.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg shadow-sm group">
-                      <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          checked={task.status === 'Completed'} 
-                          onChange={() => handleTaskStatusChange(task, task.status === 'Completed' ? 'To Do' : 'Completed')}
-                          className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                        />
-                        <span className={`text-sm font-medium ${task.status === 'Completed' ? 'line-through text-gray-400' : 'text-gray-900'}`}>{task.title}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                          <Badge color={task.status === 'Completed' ? 'green' : 'blue'}>{task.status}</Badge>
-                          <button 
-                            onClick={() => handleDeleteTask(task.id)}
-                            className="text-gray-400 hover:text-red-500 p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                             <Trash2 size={14} />
-                          </button>
-                      </div>
-                  </div>
-              ))}
+          <div>
+            <label className="text-[10px] font-bold text-gray-400 uppercase">Settlement Date</label>
+            <p className="text-sm font-bold text-indigo-600">{deal.settlement_date ? new Date(deal.settlement_date).toLocaleDateString() : 'PENDING'}</p>
           </div>
+        </div>
       </div>
-  );
 
-  const renderActivity = () => (
-      <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="p-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-          <h3 className="font-semibold text-gray-800 text-sm">Updates</h3>
-          <Button variant="outline" size="sm" icon={<Sparkles size={14} className="text-purple-600" />} onClick={handleAiSummary} disabled={isSummarizing}>
-            {isSummarizing ? 'Analyzing...' : 'AI Summary'}
+      <div className="bg-purple-50 border border-purple-100 p-4 rounded-xl relative overflow-hidden group">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-bold text-purple-900 flex items-center gap-2"><Sparkles size={16}/> Nexus Activity Summary</h4>
+          <Button size="sm" variant="outline" onClick={handleAiSummarize} disabled={isAiLoading}>
+            {isAiLoading ? 'Analysing...' : 'Generate'}
           </Button>
         </div>
-        {aiSummary && (
-          <div className="bg-purple-50 p-3 border-b border-purple-100">
-            <p className="text-xs text-purple-800 leading-relaxed mb-1 font-medium">{aiSummary.summary}</p>
-          </div>
-        )}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4" ref={scrollRef}>
-          {updates.map(update => {
-            const isMe = update.userId === user.id;
-            return (
-              <div key={update.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-lg p-3 ${isMe ? 'bg-indigo-50 text-indigo-900' : 'bg-gray-100 text-gray-800'} text-sm`}>
-                  <div className="flex items-center gap-1.5 mb-1 opacity-70 text-xs font-semibold">
-                    <span>{update.userName}</span><span>•</span><span>{update.tag}</span>
-                  </div>
-                  <p>{update.content}</p>
+        <div className="text-sm text-purple-800 leading-relaxed italic">
+          {aiSummary || "Click to generate a narrative summary of this transaction's progress."}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAIInsights = () => {
+    if (!deal.ai_summary) {
+        return (
+            <div className="py-20 text-center space-y-4">
+                <Sparkles size={48} className="mx-auto text-gray-300" />
+                <p className="text-gray-500 max-w-xs mx-auto">No Nexus AI deep analysis found for this record. Only verified properties have access to this feature.</p>
+            </div>
+        );
+    }
+
+    const score = deal.ai_summary.investment_score;
+    const scoreColor = score > 70 ? 'text-emerald-600' : score > 40 ? 'text-amber-600' : 'text-red-600';
+
+    return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+            <div className="grid grid-cols-4 gap-4">
+                <div className="col-span-1 bg-white border border-gray-200 rounded-2xl p-4 flex flex-col items-center justify-center text-center shadow-sm">
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Opportunity Score</p>
+                    <div className={`text-4xl font-black ${scoreColor}`}>{score}</div>
+                    <div className="w-full bg-gray-100 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div className={`h-full ${score > 70 ? 'bg-emerald-500' : score > 40 ? 'bg-amber-500' : 'bg-red-500'}`} style={{width: `${score}%`}}></div>
+                    </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="p-3 border-t border-gray-100 bg-white flex gap-2">
-              <textarea className="flex-1 border border-gray-300 rounded-md p-2 text-sm resize-none h-10 bg-white text-gray-900" placeholder="Log update..." value={newUpdateContent} onChange={e => setNewUpdateContent(e.target.value)} />
-              <Button size="sm" onClick={handlePostUpdate} icon={<Send size={14}/>} />
-        </div>
-      </div>
-  );
+                <div className="col-span-3 bg-indigo-600 text-white rounded-2xl p-5 shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-3 opacity-10"><Target size={80}/></div>
+                    <h4 className="text-sm font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <Sparkles size={16}/> Market Positioning
+                    </h4>
+                    <p className="text-sm leading-relaxed text-indigo-50">{deal.ai_summary.market_positioning}</p>
+                </div>
+            </div>
 
-  const renderOffers = () => (
-      <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {offers.length === 0 && <div className="text-center text-gray-400 text-sm italic py-8">No offers found.</div>}
-              {offers.map(offer => (
-                  <div key={offer.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-sm">
-                      <div className="flex justify-between items-start mb-2">
-                          <div>
-                              <div className="font-bold text-gray-900">{offer.clientName}</div>
-                              <div className="text-xs text-gray-500">${offer.amount.toLocaleString()}</div>
-                          </div>
-                          <Badge color={offer.status === 'Accepted' ? 'green' : 'gray'}>{offer.status}</Badge>
-                      </div>
-                  </div>
-              ))}
-          </div>
-      </div>
-  );
+            <div className="grid grid-cols-2 gap-6">
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <UserIcon size={16} className="text-blue-500"/> Ownership Insights
+                    </h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">{deal.ai_summary.ownership_insights}</p>
+                </div>
+                <div className="bg-white border border-gray-200 rounded-2xl p-5 shadow-sm">
+                    <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <AlertTriangle size={16} className="text-amber-500"/> Negotiation Risks
+                    </h4>
+                    <p className="text-sm text-gray-700 leading-relaxed">{deal.ai_summary.negotiation_risks}</p>
+                </div>
+            </div>
 
-  const renderDocuments = () => (
-      <div className="flex flex-col h-full bg-white rounded-xl border border-gray-200 overflow-hidden">
-         <div className="p-3 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-             <h3 className="font-semibold text-gray-800 text-sm">Documents ({deal.documents.length})</h3>
-             <label className="text-xs bg-slate-800 text-white px-2 py-1 rounded cursor-pointer">
-                Upload
-                <input type="file" className="hidden" onChange={handleFileUpload} />
-             </label>
-         </div>
-         <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-3">
-             {deal.documents.map(doc => (
-                 <div key={doc.id} className="border border-gray-200 rounded p-2 flex items-center gap-2 hover:bg-gray-50">
-                     <FileText size={16} className="text-blue-500" />
-                     <div className="flex-1 min-w-0">
-                         <div className="text-xs font-medium truncate">{doc.name}</div>
-                     </div>
-                 </div>
-             ))}
-         </div>
-      </div>
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5">
+                <h4 className="text-xs font-bold text-gray-900 uppercase tracking-widest mb-3">Executive Summary</h4>
+                <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap italic">"{deal.ai_summary.raw_text}"</p>
+            </div>
+            
+            <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
+                <ShieldCheck size={12}/> Analysis generated using verified public records and Estated AVM data.
+            </div>
+        </div>
+    );
+  };
+
+  const renderFullRecord = () => (
+    <div className="space-y-4">
+        <div className="bg-slate-900 text-white rounded-xl overflow-hidden border border-slate-700 shadow-2xl">
+        <div className="p-3 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
+            <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2"><Database size={14} className="text-indigo-400"/> Verified Property Metadata</h4>
+            <Badge color="green">Match Confirmed</Badge>
+        </div>
+        <div className="p-4 max-h-[50vh] overflow-y-auto font-mono text-[11px] leading-loose">
+            {deal.raw_data ? (
+                <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4 border-b border-slate-800 pb-4 mb-4">
+                        <div>
+                            <span className="text-slate-500 block">SOURCE</span>
+                            <span className="text-indigo-300 font-bold">{deal.raw_data.source}</span>
+                        </div>
+                        <div>
+                            <span className="text-slate-500 block">CONFIDENCE SCORE</span>
+                            <span className="text-emerald-400 font-bold">{(deal.raw_data.confidence_score * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                    {Object.entries(deal.raw_data.api_response || {}).map(([k, v]) => (
+                    <div key={k} className="grid grid-cols-2 border-b border-slate-800/50 py-1.5 hover:bg-slate-800/50 px-2 transition-colors">
+                        <span className="text-slate-500 font-bold opacity-80 uppercase tracking-tighter">{k.replace(/_/g, ' ')}</span>
+                        <span className="text-emerald-400 truncate pl-4" title={String(v)}>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                    </div>
+                    ))}
+                </div>
+            ) : <div className="text-slate-500 py-20 text-center italic">No raw metadata associated with this deal.</div>}
+        </div>
+        </div>
+    </div>
   );
 
   return (
-    <>
-    <Modal isOpen={isOpen} onClose={onClose} title={deal.address} maxWidth="max-w-5xl">
-       <div className="flex flex-col h-[70vh]">
-          <div className="flex border-b border-gray-200 mb-4 overflow-x-auto">
-             {['details', 'tasks', 'activity', 'offers', 'documents'].map(tab => (
-                 <button 
-                    key={tab}
-                    className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors capitalize ${activeTab === tab ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                    onClick={() => setActiveTab(tab as any)}
-                 >
-                    {tab === 'tasks' ? 'Tasks' : tab}
-                 </button>
-             ))}
+    <Modal 
+      isOpen={isOpen} 
+      onClose={onClose} 
+      title={deal.property_address} 
+      maxWidth="max-w-6xl"
+    >
+      <div className="flex h-[80vh]">
+        {/* Sidebar Tabs */}
+        <div className="w-56 border-r border-gray-100 pr-4 flex flex-col gap-1">
+          {[
+            { id: 'overview', label: 'Overview', icon: <Briefcase size={16}/> },
+            { id: 'ai-insights', label: 'AI Insights', icon: <Sparkles size={16}/> },
+            { id: 'property', label: 'Property Specs', icon: <Home size={16}/> },
+            { id: 'offers', label: 'Offer Board', icon: <TrendingUp size={16}/> },
+            { id: 'tasks', label: 'Checklist', icon: <CheckSquare size={16}/> },
+            { id: 'full-record', label: 'Full Record', icon: <Database size={16}/> },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === tab.id ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-500 hover:bg-gray-100'
+              }`}
+            >
+              {tab.icon} {tab.label}
+            </button>
+          ))}
+          
+          <div className="mt-auto pt-4 border-t border-gray-100">
+             <Button variant="danger" size="sm" className="w-full rounded-xl" icon={<Trash2 size={14}/>} onClick={() => onDeleteDeal(deal.id)}>Archived Deal</Button>
           </div>
-          <div className="flex-1 overflow-hidden">
-              {activeTab === 'details' && renderDetails()}
-              {activeTab === 'tasks' && renderTasks()}
-              {activeTab === 'activity' && renderActivity()}
-              {activeTab === 'offers' && renderOffers()}
-              {activeTab === 'documents' && renderDocuments()}
-          </div>
-       </div>
-    </Modal>
+        </div>
 
-    <Modal isOpen={isListingModalOpen} onClose={() => setIsListingModalOpen(false)} title="AI Listing Generator">
-        <div className="space-y-4">
-          {!generatedListing ? (
-            <>
-              <InputGroup label="Key Features">
-                <textarea 
-                  className="w-full border border-gray-300 rounded-md p-2 h-24 text-sm bg-white text-gray-900"
-                  placeholder="e.g. Renovated kitchen..."
-                  value={genFeatures}
-                  onChange={e => setGenFeatures(e.target.value)}
-                />
-              </InputGroup>
-              <Button className="w-full" onClick={handleGenerateListing} disabled={isGenerating}>
-                {isGenerating ? 'Generating...' : 'Generate Description'}
-              </Button>
-            </>
-          ) : (
-            <div className="space-y-4">
-              <div className="bg-gray-50 p-3 rounded-md border border-gray-200 text-sm whitespace-pre-line text-gray-900">
-                {generatedListing}
+        {/* Content Area */}
+        <div className="flex-1 pl-8 overflow-y-auto custom-scrollbar">
+          {activeTab === 'overview' && renderOverview()}
+          {activeTab === 'ai-insights' && renderAIInsights()}
+          {activeTab === 'full-record' && renderFullRecord()}
+          {activeTab === 'property' && (
+              <div className="bg-white border border-gray-200 rounded-2xl p-6">
+                <div className="grid grid-cols-2 gap-8">
+                    <InputGroup label="Property Type"><p className="text-gray-900 font-bold">{deal.property_type || 'Residential'}</p></InputGroup>
+                    <InputGroup label="Year Built"><p className="text-gray-900 font-bold">{deal.year_built || 'N/A'}</p></InputGroup>
+                    <div className="col-span-2 grid grid-cols-4 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                        <div className="text-center">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">Beds</span>
+                            <p className="text-2xl font-black text-gray-900">{deal.beds || 0}</p>
+                        </div>
+                        <div className="text-center">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">Baths</span>
+                            <p className="text-2xl font-black text-gray-900">{deal.baths || 0}</p>
+                        </div>
+                        <div className="text-center col-span-2">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase">Lot Size</span>
+                            <p className="text-lg font-bold text-gray-900">{deal.lot_size || 'N/A'}</p>
+                        </div>
+                    </div>
+                    <InputGroup label="City / Zip"><p className="text-gray-900 font-medium">{deal.city}, {deal.zip}</p></InputGroup>
+                    <InputGroup label="Registered Owner"><p className="text-gray-900 font-medium">{deal.owner_name}</p></InputGroup>
+                </div>
               </div>
-              <Button className="w-full" onClick={() => setGeneratedListing('')}>Try Again</Button>
-            </div>
           )}
         </div>
+      </div>
     </Modal>
-    </>
   );
 };

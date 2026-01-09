@@ -28,10 +28,6 @@ export default function App() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [allOffers, setAllOffers] = useState<Offer[]>([]);
   
-  // View Details (Fetched when deal opened)
-  const [activeUpdates, setActiveUpdates] = useState<Update[]>([]);
-  const [activeOffers, setActiveOffers] = useState<Offer[]>([]);
-  
   // UI State
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +44,6 @@ export default function App() {
   }, []);
 
   const refreshData = async () => {
-    setIsLoading(true);
     try {
       const [d, t, tm, offers, c] = await Promise.all([
         dataService.getDeals(),
@@ -57,7 +52,6 @@ export default function App() {
         dataService.getAllOffers(),
         dataService.getContacts()
       ]);
-      
       setDeals(d);
       setTasks(t);
       setTeamMembers(tm);
@@ -70,18 +64,6 @@ export default function App() {
     }
   };
 
-  useEffect(() => {
-    if (selectedDealId && currentUser) {
-      Promise.all([
-        dataService.getUpdates(selectedDealId),
-        dataService.getOffers(selectedDealId)
-      ]).then(([u, o]) => {
-        setActiveUpdates(u);
-        setActiveOffers(o);
-      });
-    }
-  }, [selectedDealId, currentUser]);
-
   const handleNavigate = (newView: AppState['view']) => setView(newView);
   const handleOpenDeal = (id: string) => setSelectedDealId(id);
   const handleCloseDealModal = () => setSelectedDealId(null);
@@ -93,9 +75,10 @@ export default function App() {
     setIsLoading(true);
     const newDeal = await dataService.createDeal({
       clientName: newDealClient,
-      address: newDealAddress,
+      property_address: newDealAddress,
       primaryAgentId: currentUser.id,
       primaryAgentName: currentUser.displayName,
+      status: 'Active'
     });
     setNewDealClient('');
     setNewDealAddress('');
@@ -105,7 +88,7 @@ export default function App() {
   };
 
   const handleDeleteDeal = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this deal? All data associated with it will be permanently removed.")) {
+    if (window.confirm("Are you sure you want to delete this deal room?")) {
       await dataService.deleteDeal(id);
       if (selectedDealId === id) setSelectedDealId(null);
       await refreshData();
@@ -113,10 +96,12 @@ export default function App() {
   };
 
   if (!currentUser) return <Login onLogin={handleLogin} />;
-  if (isLoading && deals.length === 0) return <div className="h-screen w-screen flex items-center justify-center bg-gray-50 text-indigo-600 font-medium">Loading Reality Mark...</div>;
+  
+  if (isLoading && deals.length === 0) {
+    return <div className="h-screen w-screen flex items-center justify-center bg-gray-50 text-indigo-600 font-medium">Loading Reality Mark...</div>;
+  }
 
   const selectedDeal = deals.find(d => d.id === selectedDealId);
-  const dealTasks = tasks.filter(t => t.dealId === selectedDealId);
 
   return (
     <Layout user={currentUser} currentView={view} onNavigate={handleNavigate} onLogout={handleLogout}>
@@ -125,14 +110,13 @@ export default function App() {
           deals={deals} tasks={tasks} user={currentUser} 
           onNavigate={handleNavigate} onOpenDeal={handleOpenDeal} 
           offers={allOffers} onCreateDeal={() => setIsNewDealModalOpen(true)}
+          onRefreshData={refreshData}
         />
       )}
       {view === 'deals' && (
         <DealList 
           deals={deals} 
-          tasks={tasks} 
           onOpenDeal={handleOpenDeal} 
-          onDeleteDeal={handleDeleteDeal}
           onNewDeal={() => setIsNewDealModalOpen(true)}
           onRefreshData={refreshData}
         />
@@ -180,23 +164,20 @@ export default function App() {
           onClose={handleCloseDealModal}
           deal={selectedDeal}
           user={currentUser}
-          teamMembers={teamMembers}
-          tasks={dealTasks}
-          updates={activeUpdates}
-          offers={activeOffers}
           onRefreshData={refreshData}
+          onDeleteDeal={handleDeleteDeal}
         />
       )}
 
-      <Modal isOpen={isNewDealModalOpen} onClose={() => setIsNewDealModalOpen(false)} title="Create New Deal">
+      <Modal isOpen={isNewDealModalOpen} onClose={() => setIsNewDealModalOpen(false)} title="New Transaction">
         <div className="space-y-4">
-          <InputGroup label="Client Name">
+          <InputGroup label="Primary Client Name">
             <input className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900" value={newDealClient} onChange={e => setNewDealClient(e.target.value)} />
           </InputGroup>
           <InputGroup label="Property Address">
             <input className="w-full border border-gray-300 rounded-md p-2 bg-white text-gray-900" value={newDealAddress} onChange={e => setNewDealAddress(e.target.value)} />
           </InputGroup>
-          <Button className="w-full" onClick={handleCreateDeal}>Create Deal Room</Button>
+          <Button className="w-full" onClick={handleCreateDeal}>Open Deal Room</Button>
         </div>
       </Modal>
     </Layout>

@@ -2,8 +2,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Offer, Deal, OfferStatus, User, Task, Update, DealDocument } from '../types';
 import { Card, Badge, Button, Modal, InputGroup } from '../components/Shared';
-import { DollarSign, Search, Filter, Plus, Calendar, ArrowRight, Upload, FileText, Trash2, Edit2, User as UserIcon, Briefcase, MapPin, Mail, CheckSquare, PlusCircle, MessageSquare, Phone, Send, ExternalLink, FileSpreadsheet, Download } from 'lucide-react';
+import { DollarSign, Search, Filter, Plus, Calendar, ArrowRight, Upload, FileText, Trash2, Edit2, User as UserIcon, Briefcase, MapPin, Mail, CheckSquare, PlusCircle, MessageSquare, Phone, Send, Sparkles, Copy, RefreshCw } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { generateCounterOffer } from '../services/geminiService';
 
 interface OffersListProps {
   offers: Offer[];
@@ -22,9 +23,10 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
   const [editingOffer, setEditingOffer] = useState<Offer | null>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'tasks' | 'activity' | 'documents'>('details');
   
-  // Import State
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isImporting, setIsImporting] = useState(false);
+  // AI Negotiator State
+  const [isNegotiatorOpen, setIsNegotiatorOpen] = useState(false);
+  const [negotiatorDraft, setNegotiatorDraft] = useState('');
+  const [isNegotiatorLoading, setIsNegotiatorLoading] = useState(false);
 
   // Offer Sub-Data State
   const [offerTasks, setOfferTasks] = useState<Task[]>([]);
@@ -153,64 +155,27 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
     onRefreshData();
   };
 
-  const handleDeleteOffer = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this offer?')) {
-      await dataService.deleteOffer(id);
-      setIsModalOpen(false); // Close the modal if it's open
-      onRefreshData();
+  const handleNegotiate = async () => {
+    if (!editingOffer) return;
+    setIsNegotiatorLoading(true);
+    setIsNegotiatorOpen(true);
+    try {
+        const deal = deals.find(d => d.id === editingOffer.dealId);
+        const draft = await generateCounterOffer(editingOffer, deal);
+        setNegotiatorDraft(draft);
+    } catch (e) {
+        setNegotiatorDraft("Error generating negotiator draft.");
+    } finally {
+        setIsNegotiatorLoading(false);
     }
   };
 
-  const handleExport = () => {
-    const headers = "Property,Buyer,Price,Status,Date,Notes";
-    const rows = filteredOffers.map(o => `"${o.propertyAddress}","${o.clientName}",${o.amount},${o.status},${o.submittedDate},"${o.notes || ''}"`);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join('\n');
-    const link = document.createElement("a");
-    link.setAttribute("href", encodeURI(csvContent));
-    link.setAttribute("download", "offers_export.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const parseCSV = (text: string) => {
-      const lines = text.split('\n');
-      const rows = lines.map(line => line.split(','));
-      return rows;
-  };
-
-  const handleImportCSV = async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-      setIsImporting(true);
-      try {
-          const text = await file.text();
-          const rows = parseCSV(text).filter(r => r.length > 1);
-          const newOffers = [];
-          for(let i=1; i<rows.length; i++) {
-              const row = rows[i];
-              if(row.length >= 3) {
-                  newOffers.push({
-                      propertyAddress: row[0]?.replace(/"/g, '').trim(),
-                      clientName: row[1]?.replace(/"/g, '').trim(),
-                      amount: Number(row[2]?.replace(/[^0-9.]/g, '')) || 0,
-                      status: 'Pending' as OfferStatus,
-                      submittedDate: new Date().toISOString()
-                  });
-              }
-          }
-          if(newOffers.length > 0) {
-              await dataService.addOffers(newOffers);
-              alert(`Imported ${newOffers.length} offers.`);
-              onRefreshData();
-          } else {
-              alert("No valid offers found in CSV.");
-          }
-      } catch(e) {
-          alert("Import failed.");
-      } finally {
-          setIsImporting(false);
-      }
+  const handleDeleteOffer = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this offer?')) {
+      await dataService.deleteOffer(id);
+      setIsModalOpen(false);
+      onRefreshData();
+    }
   };
 
   const handleAddOfferTask = async () => {
@@ -279,31 +244,6 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                
-                 <input 
-                    type="file" 
-                    accept=".csv" 
-                    ref={fileInputRef} 
-                    style={{ display: 'none' }}
-                    onChange={handleImportCSV} 
-                    onClick={(e) => { (e.target as HTMLInputElement).value = ''; }}
-                />
-                
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isImporting}
-                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap shadow-sm"
-                >
-                    <Upload size={16} /> {isImporting ? 'Importing...' : 'Import / Sync'}
-                </button>
-
-                <button 
-                    onClick={handleExport}
-                    className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors whitespace-nowrap shadow-sm"
-                >
-                    <Download size={16} /> Export
-                </button>
-
                  <button 
                     onClick={() => handleOpenModal()}
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600 rounded-lg text-sm font-medium text-white hover:bg-indigo-700 transition-colors whitespace-nowrap shadow-sm"
@@ -322,7 +262,6 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                 <th className="px-6 py-4 font-semibold tracking-wider">Price</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Down Pmt</th>
                 <th className="px-6 py-4 font-semibold tracking-wider">Status</th>
-                <th className="px-6 py-4 font-semibold tracking-wider">Submitted</th>
                 <th className="px-6 py-4 font-semibold tracking-wider text-right">Actions</th>
               </tr>
             </thead>
@@ -351,9 +290,6 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                        {offer.status}
                      </Badge>
                   </td>
-                  <td className="px-6 py-4 text-gray-500">
-                      {new Date(offer.submittedDate).toISOString().split('T')[0]}
-                  </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); handleOpenModal(offer); }}>
@@ -366,13 +302,6 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                   </td>
                 </tr>
               ))}
-              {filteredOffers.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                    No offers found.
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -381,30 +310,15 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingOffer ? 'Manage Offer Packet' : 'Log New Offer Packet'} maxWidth="max-w-4xl">
          <div className="flex flex-col h-[70vh]">
             <div className="flex border-b border-gray-200 mb-4 overflow-x-auto">
-              <button 
-                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'details' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('details')}
-              >
-                Details
-              </button>
-              <button 
-                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'tasks' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('tasks')}
-              >
-                Tasks
-              </button>
-              <button 
-                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'activity' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('activity')}
-              >
-                Activity
-              </button>
-              <button 
-                className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeTab === 'documents' ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-                onClick={() => setActiveTab('documents')}
-              >
-                Documents
-              </button>
+              {['details', 'tasks', 'activity', 'documents'].map(tab => (
+                <button 
+                  key={tab}
+                  className={`flex-1 min-w-[80px] pb-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap capitalize ${activeTab === tab ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+                  onClick={() => setActiveTab(tab as any)}
+                >
+                  {tab}
+                </button>
+              ))}
             </div>
             
             {!editingOffer && activeTab !== 'details' && (
@@ -415,6 +329,22 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
 
             {activeTab === 'details' && (
               <div className="space-y-6 overflow-y-auto pr-2 flex-1">
+                <div className="bg-indigo-50/50 p-4 rounded-lg border border-indigo-100 flex items-center justify-between">
+                    <div>
+                        <h4 className="text-sm font-bold text-indigo-900 mb-1">AI Negotiator Tools</h4>
+                        <p className="text-xs text-indigo-600">Draft polite, persuasive counter-offer emails in seconds.</p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      icon={<Sparkles size={14} className="text-indigo-600" />} 
+                      onClick={handleNegotiate}
+                      disabled={!editingOffer}
+                    >
+                        Draft Counter
+                    </Button>
+                </div>
+
                 <InputGroup label="Property Address">
                   <input 
                       className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-gray-900 bg-white"
@@ -430,7 +360,6 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                     <InputGroup label="Primary Buyer">
                       <input 
                           className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
-                          placeholder="e.g. John Smith"
                           value={formClient}
                           onChange={e => setFormClient(e.target.value)}
                       />
@@ -438,37 +367,10 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                     <InputGroup label="Buyer Email">
                       <input 
                           className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
-                          placeholder="john@example.com"
                           value={formEmail}
                           onChange={e => setFormEmail(e.target.value)}
                       />
                     </InputGroup>
-                    <InputGroup label="Co-Buyer (Optional)">
-                      <input 
-                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
-                          placeholder="e.g. Mary Smith"
-                          value={formCoBuyer}
-                          onChange={e => setFormCoBuyer(e.target.value)}
-                      />
-                    </InputGroup>
-                    <InputGroup label="Co-Buyer Email">
-                      <input 
-                          className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
-                          placeholder="mary@example.com"
-                          value={formCoBuyerEmail}
-                          onChange={e => setFormCoBuyerEmail(e.target.value)}
-                      />
-                    </InputGroup>
-                    <div className="col-span-2">
-                      <InputGroup label="Current Mailing Address">
-                        <input 
-                            className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
-                            placeholder="e.g. 500 Park Ave, NY"
-                            value={formAddress}
-                            onChange={e => setFormAddress(e.target.value)}
-                        />
-                      </InputGroup>
-                    </div>
                   </div>
                 </div>
 
@@ -481,42 +383,10 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                             <input 
                               type="number"
                               className="w-full border border-gray-300 rounded-md pl-6 p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium text-gray-900 bg-white"
-                              placeholder="0"
                               value={formAmount}
                               onChange={e => setFormAmount(Number(e.target.value))}
                             />
                         </div>
-                      </InputGroup>
-                      <InputGroup label="EMD % (Earnest Money)">
-                        <div className="flex items-center gap-2">
-                          <div className="relative flex-1">
-                              <input 
-                                type="number"
-                                step="0.1"
-                                className="w-full border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
-                                placeholder="1.0"
-                                value={formEMDPercent}
-                                onChange={e => setFormEMDPercent(Number(e.target.value))}
-                              />
-                              <span className="absolute right-3 top-2 text-gray-500 text-sm">%</span>
-                          </div>
-                          <div className="text-sm text-gray-500 font-medium whitespace-nowrap">
-                            = ${((formAmount * formEMDPercent) / 100).toLocaleString()}
-                          </div>
-                        </div>
-                      </InputGroup>
-                      <InputGroup label="Loan Type">
-                        <select 
-                            className="w-full border border-gray-300 rounded-md p-2 bg-white text-sm text-gray-900"
-                            value={formLoanType}
-                            onChange={e => setFormLoanType(e.target.value)}
-                        >
-                            <option value="Conventional">Conventional</option>
-                            <option value="FHA">FHA</option>
-                            <option value="VA">VA</option>
-                            <option value="Cash">Cash</option>
-                            <option value="Other">Other</option>
-                        </select>
                       </InputGroup>
                       <InputGroup label="Status">
                         <select 
@@ -538,7 +408,6 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                   <InputGroup label="Notes / Contingencies">
                       <textarea 
                         className="w-full border border-gray-300 rounded-md p-2 h-20 focus:ring-2 focus:ring-indigo-500 outline-none text-sm text-gray-900 bg-white"
-                        placeholder="e.g. Inspection within 10 days, closing in 30 days..."
                         value={formNotes}
                         onChange={e => setFormNotes(e.target.value)}
                       />
@@ -559,7 +428,7 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
               </div>
             )}
 
-             {activeTab === 'tasks' && editingOffer && (
+            {activeTab === 'tasks' && editingOffer && (
                <div className="flex-1 flex flex-col overflow-hidden">
                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex-shrink-0">
                     <h4 className="text-sm font-bold text-gray-800 mb-2 flex items-center gap-2">
@@ -578,11 +447,8 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                  </div>
 
                  <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-                    {offerTasks.length === 0 && (
-                       <p className="text-center text-gray-400 text-sm py-8">No tasks for this offer yet.</p>
-                    )}
                     {offerTasks.map(task => (
-                       <div key={task.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
+                       <div key={task.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
                           <div className="flex items-center gap-3">
                              <input 
                                 type="checkbox" 
@@ -603,14 +469,9 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
             {activeTab === 'activity' && editingOffer && (
                <div className="flex-1 flex flex-col overflow-hidden">
                    <div className="flex-1 overflow-y-auto space-y-3 pr-2 pb-2" ref={scrollRef}>
-                      {offerUpdates.length === 0 && (
-                          <p className="text-center text-gray-400 text-sm py-8">No activity logged for this offer yet.</p>
-                      )}
-                      {offerUpdates.map(update => {
-                        const isMe = update.userId === currentUser.id;
-                        return (
-                          <div key={update.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                            <div className={`max-w-[85%] rounded-xl p-3 text-sm ${isMe ? 'bg-indigo-50 text-indigo-900 rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
+                      {offerUpdates.map(update => (
+                          <div key={update.id} className={`flex ${update.userId === currentUser.id ? 'justify-end' : 'justify-start'}`}>
+                            <div className={`max-w-[85%] rounded-xl p-3 text-sm ${update.userId === currentUser.id ? 'bg-indigo-50 text-indigo-900 rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'}`}>
                                <div className="flex items-center gap-1.5 mb-1 opacity-70 text-xs font-semibold">
                                   <span>{update.userName}</span>
                                   <span>•</span>
@@ -619,10 +480,8 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                                <p>{update.content}</p>
                             </div>
                           </div>
-                        );
-                      })}
+                      ))}
                    </div>
-                   
                    <div className="pt-3 border-t border-gray-100 flex gap-2">
                       <input 
                          className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900 bg-white"
@@ -636,54 +495,70 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                </div>
             )}
 
-             {activeTab === 'documents' && editingOffer && (
-               <div className="flex-1 flex flex-col overflow-hidden">
-                   <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex justify-between items-center flex-shrink-0">
-                      <div>
-                        <h4 className="text-sm font-bold text-gray-800 flex items-center gap-2">
-                           <FileText size={16} /> Offer Documents
-                        </h4>
-                        <p className="text-xs text-gray-500 mt-0.5">Pre-approvals, BFI, Contracts</p>
-                      </div>
-                      <div className="relative">
-                            <input 
-                              type="file" 
-                              id={`modal-offer-doc-${editingOffer.id}`} 
-                              className="hidden" 
-                              onChange={(e) => handleOfferFileUpload(editingOffer.id, e)}
-                              onClick={(e) => (e.target as HTMLInputElement).value = ''}
-                            />
-                            <label htmlFor={`modal-offer-doc-${editingOffer.id}`} className="cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
-                               <Upload size={14} /> Upload New
-                            </label>
-                      </div>
-                   </div>
-
-                   <div className="flex-1 overflow-y-auto space-y-2 pr-2">
-                      {(!editingOffer.documents || editingOffer.documents.length === 0) && (
-                         <div className="text-center py-8 text-gray-400 border-2 border-dashed border-gray-100 rounded-lg">
-                            <FileText size={32} className="mx-auto mb-2 opacity-20" />
-                            <p className="text-sm">No documents attached.</p>
-                         </div>
-                      )}
-                      {editingOffer.documents?.map(doc => (
-                         <div key={doc.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:shadow-sm transition-shadow">
-                            <div className="flex items-center gap-3 overflow-hidden">
-                               <div className="bg-blue-50 text-blue-600 p-2 rounded">
-                                  <FileText size={16} />
-                               </div>
-                               <div className="min-w-0">
-                                  <p className="text-sm font-medium text-gray-900 truncate" title={doc.name}>{doc.name}</p>
-                                  <p className="text-xs text-gray-500">{new Date(doc.uploadedAt).toLocaleDateString()}</p>
-                               </div>
-                            </div>
-                            <Button variant="ghost" size="sm">Download</Button>
-                         </div>
-                      ))}
-                   </div>
+            {activeTab === 'documents' && editingOffer && (
+               <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-4 flex justify-between items-center">
+                      <h4 className="text-sm font-bold text-gray-800">Offer Documents</h4>
+                      <label className="cursor-pointer bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-3 py-1.5 rounded-md text-sm font-medium flex items-center gap-2 transition-colors">
+                          <Upload size={14} /> Upload
+                          <input type="file" className="hidden" onChange={(e) => handleOfferFileUpload(editingOffer.id, e)} />
+                      </label>
+                  </div>
+                  {editingOffer.documents?.map(doc => (
+                     <div key={doc.id} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                        <div className="flex items-center gap-3">
+                           <FileText size={16} className="text-blue-500" />
+                           <span className="text-sm font-medium text-gray-900">{doc.name}</span>
+                        </div>
+                        <Button variant="ghost" size="sm">Download</Button>
+                     </div>
+                  ))}
                </div>
             )}
          </div>
+      </Modal>
+
+      {/* AI Negotiator Draft Modal */}
+      <Modal 
+        isOpen={isNegotiatorOpen} 
+        onClose={() => setIsNegotiatorOpen(false)} 
+        title="AI Negotiator Draft" 
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-4">
+            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100 relative group">
+                {isNegotiatorLoading ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-indigo-600">
+                        <Sparkles size={32} className="animate-spin mb-4" />
+                        <p className="text-sm font-bold uppercase tracking-widest">Drafting persuasive response...</p>
+                    </div>
+                ) : (
+                    <>
+                        <div className="text-sm text-gray-800 leading-relaxed whitespace-pre-line pr-8">
+                            {negotiatorDraft}
+                        </div>
+                        <button 
+                            onClick={() => {
+                                navigator.clipboard.writeText(negotiatorDraft);
+                                alert("Copied to clipboard!");
+                            }}
+                            className="absolute top-4 right-4 p-2 bg-white rounded-lg shadow-sm border border-gray-200 text-gray-500 hover:text-indigo-600 transition-colors"
+                            title="Copy to clipboard"
+                        >
+                            <Copy size={16} />
+                        </button>
+                    </>
+                )}
+            </div>
+            <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" icon={<RefreshCw size={16} />} onClick={handleNegotiate} disabled={isNegotiatorLoading}>
+                    Regenerate
+                </Button>
+                <Button className="flex-1" onClick={() => setIsNegotiatorOpen(false)}>
+                    Use This Draft
+                </Button>
+            </div>
+        </div>
       </Modal>
     </div>
   );

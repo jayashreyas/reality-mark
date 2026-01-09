@@ -1,6 +1,6 @@
 
 export type DealType = 'Sale' | 'Rental';
-export type DealStatus = 'Lead' | 'Active' | 'Under Contract' | 'Closed' | 'Lost';
+export type DealStatus = 'Active' | 'Under Contract' | 'Pending' | 'Closed' | 'Cancelled' | 'Lead' | 'Lost';
 export type TaskStatus = 'To Do' | 'In Progress' | 'Waiting' | 'Completed';
 export type TaskPriority = 'High' | 'Normal' | 'Low';
 export type UpdateTag = 'Note' | 'Call' | 'Email' | 'Document' | 'Meeting' | 'WhatsApp';
@@ -31,7 +31,7 @@ export interface Contact {
 export interface DealDocument {
   id: string;
   name: string;
-  type: 'pdf' | 'image' | 'doc' | 'google-doc' | 'google-sheet' | 'google-slide' | 'other';
+  type: 'contract' | 'inspection' | 'closing' | 'other';
   url: string;
   uploadedAt: string;
 }
@@ -39,50 +39,97 @@ export interface DealDocument {
 export interface Deal {
   id: string;
   mlsNumber?: string;
-  category?: string; // e.g. Residential
-  subType?: string; // e.g. Single Family
+  property_address: string;
   city?: string;
+  state?: string;
+  zip?: string;
+  property_type?: string;
   beds?: number;
   baths?: number;
-  contractualInfo?: string;
-  searchId?: string;
-  officeName?: string;
-  statusDate?: string;
-
-  clientName: string;
-  address: string;
-  type: DealType;
+  lot_size?: string;
+  year_built?: number;
+  owner_name?: string;
+  price: number;
   status: DealStatus;
+  
+  // Coordinates
+  latitude?: number;
+  longitude?: number;
+
+  // Dates
+  contract_date?: string;   // ISO String (YYYY-MM-DD)
+  settlement_date?: string; // ISO String (YYYY-MM-DD)
+  createdAt: string;
+  updatedAt: string;
+
+  // Financials
+  commission_percent: number; 
+  commission_amount: number;
+
+  // Relations
   primaryAgentId: string;
   primaryAgentName: string;
-  createdAt: string; // ISO String
-  updatedAt: string; // ISO String
+  clientName: string;
+  type: DealType;
   notes?: string;
-  
-  // Financials
-  price: number;
-  commissionRate: number; // Percentage (e.g. 2.5)
-
-  // Documents
   documents: DealDocument[];
+  
+  // AI Insights
+  ai_summary?: {
+    ownership_insights: string;
+    market_positioning: string;
+    negotiation_risks: string;
+    investment_score: number;
+    raw_text: string;
+  };
+
+  // Full Record Data
+  raw_data?: {
+    source: string;
+    parcel_id?: string;
+    confidence_score: number;
+    api_response: any;
+  };
+}
+
+export interface PropertyLookupResult {
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  property_type: string;
+  beds: number;
+  baths: number;
+  lot_size: string;
+  year_built: number;
+  owner_name: string;
+  last_sale_price: number;
+  last_sale_date: string;
+  estimated_value: number;
+  parcel_id?: string;
+  latitude: number;
+  longitude: number;
+  confidence_score: number;
+  api_source: string;
+  raw_response: any;
 }
 
 export interface Offer {
   id: string;
   dealId?: string; 
-  status: OfferStatus;
-  submittedDate: string; // ISO String
-  notes?: string;
-  documents: DealDocument[];
   propertyAddress: string;
-  clientName: string; // Primary Buyer
+  status: OfferStatus;
+  submittedDate: string;
+  notes?: string;
+  clientName: string;
+  amount: number;
+  documents: any[];
   coBuyerName?: string;
   buyerEmail?: string;
   coBuyerEmail?: string;
   buyerAddress?: string;
-  amount: number; // Offer Price
-  earnestMoneyPercent?: number; // EMD in %
-  loanType?: 'Cash' | 'Conventional' | 'FHA' | 'VA' | 'Other';
+  earnestMoneyPercent?: number;
+  loanType?: 'Conventional' | 'FHA' | 'VA' | 'Cash' | 'Other';
 }
 
 export interface Task {
@@ -93,7 +140,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   assignedToName: string;
-  dueDate: string; // ISO String
+  dueDate: string;
   createdAt: string;
 }
 
@@ -105,7 +152,7 @@ export interface Update {
   tag: UpdateTag;
   userId: string;
   userName: string;
-  timestamp: string; // ISO String
+  timestamp: string;
 }
 
 export interface CalendarEvent {
@@ -164,4 +211,28 @@ export interface AppState {
   currentUser: User | null;
   view: 'dashboard' | 'deals' | 'offers' | 'mytasks' | 'calendar' | 'team' | 'messages' | 'contacts' | 'profile';
   selectedDealId: string | null;
+}
+
+export interface SmartImportRecord {
+  record_type: 'ClosedDeal' | 'ActiveDeal' | 'Lead' | 'Contact';
+  data: {
+    full_name: string;
+    address: string | null;
+    city: string | null;
+    zip: string | null;
+    property_type: string | null;
+    bedrooms: number | null;
+    sale_price: number | null;
+    status: string | null;
+    transaction_date: string | null;
+    settlement_date?: string | null;
+    contract_date?: string | null;
+    notes: string;
+  };
+}
+
+export interface SmartImportSummary {
+  deals: number;
+  leads: number;
+  contacts: number;
 }

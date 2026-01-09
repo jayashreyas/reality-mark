@@ -1,105 +1,36 @@
 
-import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer, Notification, CrmData } from '../types';
+import { Deal, Task, Update, User, DealDocument, ChatMessage, Reminder, ChatChannel, Contact, Offer, Notification, CrmData, DealStatus, CalendarEvent, SmartImportRecord, SmartImportSummary, PropertyLookupResult } from '../types';
 
 const SEED_TEAM_MEMBERS: User[] = [
   { id: 'u1', displayName: 'Shreyas', initials: 'S', role: 'admin', email: 'shreyas@realitymark.com', phone: '(555) 123-4567' },
   { id: 'u2', displayName: 'Sarah Sales', initials: 'SS', role: 'agent', email: 'sarah@realitymark.com', phone: '(555) 234-5678' },
-  { id: 'u3', displayName: 'Mike Manager', initials: 'MM', role: 'agent', email: 'mike@realitymark.com', phone: '(555) 345-6789' },
-  { id: 'u4', displayName: 'Linda Legal', initials: 'LL', role: 'agent', email: 'linda@realitymark.com', phone: '(555) 456-7890' },
-];
-
-const SEED_CONTACTS: Contact[] = [
-  { id: 'c1', name: 'Sarah Jenkins', email: 'sarah.j@example.com', phone: '(555) 123-4567', type: 'Seller', notes: 'Prefers texts. Selling due to relocation.', lastContacted: new Date().toISOString() },
-  { id: 'c2', name: 'Michael Bond', email: 'm.bond@example.com', phone: '(555) 987-6543', type: 'Buyer', notes: 'Looking for penthouse suites only.', lastContacted: new Date(Date.now() - 86400000 * 5).toISOString() },
 ];
 
 const SEED_DEALS: Deal[] = [
   {
     id: 'd1',
     mlsNumber: 'MLS-230045',
-    category: 'Resi',
-    subType: 'Detached',
+    property_address: '124 Maple Ave',
     city: 'Springfield',
+    state: 'PA',
+    zip: '19064',
+    property_type: 'Single Family',
     beds: 4,
     baths: 2.5,
-    contractualInfo: 'Ready',
-    searchId: 'S-991',
-    officeName: 'Reality Mark HQ',
-    statusDate: new Date().toISOString(),
-    clientName: 'Sarah Jenkins',
-    address: '124 Maple Ave, Springfield',
-    type: 'Sale',
-    status: 'Active',
-    primaryAgentId: 'u1',
-    primaryAgentName: 'Shreyas',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
     price: 550000,
-    commissionRate: 2.5,
-    documents: []
-  },
-  {
-    id: 'd2',
-    mlsNumber: 'MLS-559281',
-    category: 'Comm',
-    subType: 'Office',
-    city: 'Metro City',
-    beds: 0,
-    baths: 2,
-    contractualInfo: 'Pending',
-    searchId: 'S-104',
-    officeName: 'Reality Mark HQ',
-    statusDate: new Date(Date.now() - 86400000).toISOString(),
-    clientName: 'TechCorp Inc.',
-    address: '500 Innovation Blvd, Suite 200',
-    type: 'Rental',
-    status: 'Under Contract',
+    status: 'Active',
+    commission_percent: 2.5,
+    commission_amount: 13750,
     primaryAgentId: 'u1',
     primaryAgentName: 'Shreyas',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date().toISOString(),
-    price: 4500,
-    commissionRate: 100,
-    documents: []
-  }
-];
-
-const SEED_OFFERS: Offer[] = [
-  {
-    id: 'o1',
-    dealId: 'd1',
-    propertyAddress: '124 Maple Ave, Springfield',
-    clientName: 'Robert Buyer',
-    amount: 540000,
-    status: 'Pending',
-    submittedDate: new Date(Date.now() - 86400000).toISOString(),
-    documents: []
-  }
-];
-
-const SEED_TASKS: Task[] = [
-  {
-    id: 't1',
-    dealId: 'd1',
-    title: 'Schedule Photographer',
-    status: 'To Do',
-    priority: 'High',
-    assignedToName: 'Shreyas',
-    dueDate: new Date(Date.now() + 86400000).toISOString(),
+    clientName: 'Sarah Jenkins',
+    type: 'Sale',
     createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    documents: [],
+    raw_data: { source: "Manual", confidence_score: 1.0, api_response: {} }
   }
 ];
-
-const SEED_CHANNELS: ChatChannel[] = [
-  { id: 'general', name: 'General', type: 'public' },
-];
-
-const SEED_MESSAGES: ChatMessage[] = [];
-const SEED_REMINDERS: Reminder[] = [];
-const SEED_NOTIFICATIONS: Notification[] = [];
-const SEED_UPDATES: Update[] = [];
-
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 class DataService {
   private load<T>(key: string, seed: T): T {
@@ -171,142 +102,6 @@ class DataService {
     return user;
   }
 
-  async getContacts(): Promise<Contact[]> {
-    return this.load('contacts', SEED_CONTACTS);
-  }
-
-  async addContact(contact: Omit<Contact, 'id'>): Promise<Contact> {
-    const contacts = await this.getContacts();
-    const newContact: Contact = {
-      ...contact,
-      id: `c${Date.now()}`,
-      lastContacted: new Date().toISOString()
-    };
-    contacts.push(newContact);
-    this.save('contacts', contacts);
-    return newContact;
-  }
-
-  async addContacts(newContactsData: Omit<Contact, 'id' | 'lastContacted'>[]): Promise<Contact[]> {
-    const contacts = await this.getContacts();
-    const createdContacts: Contact[] = newContactsData.map(c => ({
-      ...c,
-      id: `c${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      lastContacted: undefined
-    }));
-    contacts.push(...createdContacts);
-    this.save('contacts', contacts);
-    return createdContacts;
-  }
-
-  async updateContact(contact: Contact): Promise<void> {
-    const contacts = await this.getContacts();
-    const index = contacts.findIndex(c => c.id === contact.id);
-    if (index !== -1) {
-      contacts[index] = contact;
-      this.save('contacts', contacts);
-    }
-  }
-
-  async deleteContact(id: string): Promise<void> {
-    let contacts = await this.getContacts();
-    contacts = contacts.filter(c => c.id !== id);
-    this.save('contacts', contacts);
-  }
-
-  async getChannels(): Promise<ChatChannel[]> {
-    return this.load('channels', SEED_CHANNELS);
-  }
-
-  async createChannel(name: string): Promise<ChatChannel> {
-    const channels = await this.getChannels();
-    const newChannel: ChatChannel = {
-      id: name.toLowerCase().replace(/\s+/g, '-'),
-      name,
-      type: 'public'
-    };
-    channels.push(newChannel);
-    this.save('channels', channels);
-    return newChannel;
-  }
-
-  async getMessages(channelId: string): Promise<ChatMessage[]> {
-    const msgs = this.load<ChatMessage[]>('messages', SEED_MESSAGES);
-    return msgs.filter(m => m.channelId === channelId);
-  }
-
-  async sendMessage(msg: Omit<ChatMessage, 'id' | 'timestamp'>): Promise<ChatMessage> {
-    const msgs = this.load<ChatMessage[]>('messages', SEED_MESSAGES);
-    const newMsg: ChatMessage = {
-      ...msg,
-      id: `m${Date.now()}`,
-      timestamp: new Date().toISOString()
-    };
-    msgs.push(newMsg);
-    this.save('messages', msgs);
-    return newMsg;
-  }
-
-  async clearMessages(channelId: string): Promise<void> {
-    let msgs = this.load<ChatMessage[]>('messages', SEED_MESSAGES);
-    msgs = msgs.filter(m => m.channelId !== channelId);
-    this.save('messages', msgs);
-  }
-
-  async getReminders(userId: string): Promise<Reminder[]> {
-    const reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
-    return reminders.filter(r => r.userId === userId);
-  }
-
-  async addReminder(userId: string, content: string): Promise<Reminder> {
-    const reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
-    const newReminder: Reminder = {
-      id: `r${Date.now()}`,
-      userId,
-      content,
-      isCompleted: false,
-      createdAt: new Date().toISOString()
-    };
-    reminders.push(newReminder);
-    this.save('reminders', reminders);
-    return newReminder;
-  }
-
-  async toggleReminder(id: string): Promise<void> {
-    const reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
-    const index = reminders.findIndex(r => r.id === id);
-    if (index !== -1) {
-      reminders[index].isCompleted = !reminders[index].isCompleted;
-      this.save('reminders', reminders);
-    }
-  }
-
-  async deleteReminder(id: string) {
-    let reminders = this.load<Reminder[]>('reminders', SEED_REMINDERS);
-    reminders = reminders.filter(r => r.id !== id);
-    this.save('reminders', reminders);
-  }
-
-  async getNotifications(userId: string): Promise<Notification[]> {
-    const notifications = this.load<Notification[]>('notifications', SEED_NOTIFICATIONS);
-    return notifications.filter(n => n.userId === userId).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }
-
-  async markNotificationRead(id: string): Promise<void> {
-    const notifications = this.load<Notification[]>('notifications', SEED_NOTIFICATIONS);
-    const index = notifications.findIndex(n => n.id === id);
-    if (index !== -1) {
-      notifications[index].isRead = true;
-      this.save('notifications', notifications);
-    }
-  }
-
-  async clearNotifications(userId: string): Promise<void> {
-    let notifications = this.load<Notification[]>('notifications', SEED_NOTIFICATIONS);
-    notifications = notifications.filter(n => n.userId !== userId);
-    this.save('notifications', notifications);
-  }
-
   async getDeals(): Promise<Deal[]> {
     return this.load('deals', SEED_DEALS);
   }
@@ -314,164 +109,167 @@ class DataService {
   async createDeal(deal: Partial<Deal>): Promise<Deal> {
     const deals = await this.getDeals();
     const newDeal: Deal = { 
-      clientName: deal.clientName || 'Unnamed',
-      address: deal.address || 'No Address',
-      type: deal.type || 'Sale',
-      status: deal.status || 'Lead',
+      id: `d${Date.now()}`,
+      property_address: deal.property_address || 'Unnamed',
+      city: deal.city || '',
+      state: deal.state || '',
+      zip: deal.zip || '',
+      property_type: deal.property_type || '',
+      beds: deal.beds || 0,
+      baths: deal.baths || 0,
+      lot_size: deal.lot_size || '',
+      year_built: deal.year_built || 0,
+      owner_name: deal.owner_name || '',
+      price: deal.price || 0,
+      status: deal.status || 'Active',
+      commission_percent: deal.commission_percent || 2.5,
+      commission_amount: (deal.price || 0) * ((deal.commission_percent || 2.5) / 100),
       primaryAgentId: deal.primaryAgentId || 'u1',
       primaryAgentName: deal.primaryAgentName || 'Admin',
-      price: deal.price || 0,
-      commissionRate: deal.commissionRate || 2.5,
-      id: `d${Date.now()}`, 
-      createdAt: new Date().toISOString(), 
+      clientName: deal.clientName || deal.owner_name || 'Unnamed',
+      type: deal.type || 'Sale',
+      createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      statusDate: new Date().toISOString(),
-      documents: []
+      documents: [],
+      raw_data: deal.raw_data,
+      latitude: deal.latitude,
+      longitude: deal.longitude,
+      ai_summary: deal.ai_summary
     };
     deals.push(newDeal);
     this.save('deals', deals);
     return newDeal;
   }
 
-  async addDeals(dealsData: Partial<Deal>[]): Promise<Deal[]> {
-    const deals = await this.getDeals();
-    const currentUser = this.getUser();
-    const newDeals: Deal[] = dealsData.map((d, i) => ({
-        ...d,
-        id: `d${Date.now()}-${i}-${Math.random().toString(36).substr(2, 5)}`,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        statusDate: new Date().toISOString(),
-        primaryAgentId: currentUser?.id || 'u1',
-        primaryAgentName: currentUser?.displayName || 'Admin',
-        clientName: d.clientName || 'Unnamed',
-        address: d.address || 'No Address',
-        type: d.type || 'Sale',
-        status: d.status || 'Lead',
-        price: d.price || 0,
-        commissionRate: d.commissionRate || 2.5,
-        documents: []
-    }));
-    deals.push(...newDeals);
-    this.save('deals', deals);
-    return newDeals;
+  async lookupProperty(params: { address: string, lat: number, lng: number }): Promise<PropertyLookupResult> {
+    // SIMULATED EXTERNAL API CALL (e.g. to Estated)
+    await new Promise(resolve => setTimeout(resolve, 1800));
+    
+    // In a real app, this route would be /api/property/lookup
+    const isMockMatch = params.address.toLowerCase().includes('pennsylvania') || params.address.toLowerCase().includes('washington');
+    
+    return {
+        address: params.address,
+        city: isMockMatch ? 'Washington' : 'Philadelphia',
+        state: isMockMatch ? 'DC' : 'PA',
+        zip: isMockMatch ? '20500' : '19103',
+        property_type: 'Single Family Residence',
+        beds: 4,
+        baths: 3,
+        lot_size: '0.25 Acres',
+        year_built: 1792,
+        owner_name: isMockMatch ? 'Government of USA' : 'Miller Holdings LLC',
+        last_sale_price: 1250000,
+        last_sale_date: '2015-08-22',
+        estimated_value: 1850000,
+        parcel_id: 'BK-120-9912-X',
+        latitude: params.lat,
+        longitude: params.lng,
+        confidence_score: 0.98,
+        api_source: 'Estated (Tier 1 Verified)',
+        raw_response: {
+            zoning: 'Residential - R3',
+            census_tract: '12.01',
+            tax_amount: 14500,
+            mortgage_indicator: true,
+            equity_estimate: 0.65
+        }
+    };
   }
 
-  async updateDeal(deal: Deal): Promise<void> {
+  async updateDealAISummary(dealId: string, summary: Deal['ai_summary']): Promise<void> {
+    const deals = await this.getDeals();
+    const index = deals.findIndex(d => d.id === dealId);
+    if (index !== -1) {
+      deals[index].ai_summary = summary;
+      deals[index].updatedAt = new Date().toISOString();
+      this.save('deals', deals);
+    }
+  }
+
+  async updateDealStatus(deal: Deal, newStatus: DealStatus): Promise<void> {
     const deals = await this.getDeals();
     const index = deals.findIndex(d => d.id === deal.id);
     if (index !== -1) {
-      deals[index] = { ...deal, updatedAt: new Date().toISOString() };
+      const updatedDeal = { ...deals[index], status: newStatus, updatedAt: new Date().toISOString() };
+      deals[index] = updatedDeal;
       this.save('deals', deals);
     }
   }
 
   async deleteDeal(id: string): Promise<void> {
-    let deals = await this.getDeals();
-    deals = deals.filter(d => d.id !== id);
-    this.save('deals', deals);
-  }
-
-  async getAllOffers(): Promise<Offer[]> {
-    return this.load<Offer[]>('offers', SEED_OFFERS);
+    const currentDeals = this.load('deals', SEED_DEALS);
+    const updatedDeals = currentDeals.filter(d => d.id !== id);
+    this.save('deals', updatedDeals);
   }
 
   async getOffers(dealId: string): Promise<Offer[]> {
-    const offers = await this.getAllOffers();
-    return offers.filter(o => o.dealId === dealId);
+    const offers = this.load<Offer[]>('offers', []);
+    return offers.filter(o => o.dealId === dealId).sort((a, b) => b.amount - a.amount);
   }
 
-  async createOffer(offer: Omit<Offer, 'id'>): Promise<Offer> {
-    const offers = await this.getAllOffers();
-    const newOffer: Offer = { ...offer, id: `o${Date.now()}` };
+  async getAllOffers(): Promise<Offer[]> {
+     return this.load<Offer[]>('offers', []);
+  }
+
+  async createOffer(offer: Partial<Offer>): Promise<Offer> {
+    const offers = this.load<Offer[]>('offers', []);
+    const newOffer: Offer = {
+        id: `o${Date.now()}`,
+        dealId: offer.dealId,
+        propertyAddress: offer.propertyAddress || '',
+        clientName: offer.clientName || 'Anonymous',
+        amount: offer.amount || 0,
+        status: offer.status || 'Pending',
+        submittedDate: offer.submittedDate || new Date().toISOString(),
+        documents: [],
+        coBuyerName: offer.coBuyerName,
+        buyerEmail: offer.buyerEmail,
+        coBuyerEmail: offer.coBuyerEmail,
+        buyerAddress: offer.buyerAddress,
+        earnestMoneyPercent: offer.earnestMoneyPercent,
+        loanType: offer.loanType
+    };
     offers.push(newOffer);
     this.save('offers', offers);
     return newOffer;
   }
 
-  async addOffers(offersData: Partial<Offer>[]): Promise<Offer[]> {
-    const offers = await this.getAllOffers();
-    const newOffers: Offer[] = offersData.map(o => ({
-        ...o,
-        id: `o${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        status: o.status || 'Pending',
-        submittedDate: o.submittedDate || new Date().toISOString(),
-        propertyAddress: o.propertyAddress || '',
-        clientName: o.clientName || '',
-        amount: o.amount || 0,
-        documents: []
-    }));
-    offers.push(...newOffers);
-    this.save('offers', offers);
-    return newOffers;
-  }
-
-  async updateOffer(offer: Offer): Promise<void> {
-    const offers = await this.getAllOffers();
+  // --- Fix: Added missing offer management methods ---
+  async updateOffer(offer: Offer): Promise<Offer> {
+    const offers = this.load<Offer[]>('offers', []);
     const index = offers.findIndex(o => o.id === offer.id);
     if (index !== -1) {
       offers[index] = offer;
       this.save('offers', offers);
     }
+    return offer;
   }
 
-  async deleteOffer(offerId: string): Promise<void> {
-    let offers = await this.getAllOffers();
-    offers = offers.filter(o => o.id !== offerId);
-    this.save('offers', offers);
+  async deleteOffer(id: string): Promise<void> {
+    const offers = this.load<Offer[]>('offers', []);
+    const filtered = offers.filter(o => o.id !== id);
+    this.save('offers', filtered);
   }
 
-  async addOfferDocument(offerId: string, file: File): Promise<DealDocument> {
-    const offers = await this.getAllOffers();
+  async addOfferDocument(offerId: string, file: File): Promise<void> {
+    const offers = this.load<Offer[]>('offers', []);
     const index = offers.findIndex(o => o.id === offerId);
-    if (index === -1) throw new Error("Offer not found");
-    const newDoc: DealDocument = {
-      id: `odoc${Date.now()}`,
-      name: file.name,
-      type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'other',
-      url: '#',
-      uploadedAt: new Date().toISOString()
-    };
-    if (!offers[index].documents) offers[index].documents = [];
-    offers[index].documents.push(newDoc);
-    this.save('offers', offers);
-    return newDoc;
-  }
-
-  async addDocument(dealId: string, file: File): Promise<DealDocument> {
-    const deals = await this.getDeals();
-    const dealIndex = deals.findIndex(d => d.id === dealId);
-    if (dealIndex === -1) throw new Error("Deal not found");
-    const newDoc: DealDocument = {
-      id: `doc${Date.now()}`,
-      name: file.name,
-      type: file.type.includes('pdf') ? 'pdf' : file.type.includes('image') ? 'image' : 'other',
-      url: '#',
-      uploadedAt: new Date().toISOString()
-    };
-    deals[dealIndex].documents.push(newDoc);
-    this.save('deals', deals);
-    return newDoc;
-  }
-
-  async createGoogleFile(dealId: string, name: string, type: 'google-doc' | 'google-sheet' | 'google-slide'): Promise<DealDocument> {
-    const deals = await this.getDeals();
-    const dealIndex = deals.findIndex(d => d.id === dealId);
-    if (dealIndex === -1) throw new Error("Deal not found");
-    const newDoc: DealDocument = {
-      id: `g${Date.now()}`,
-      name: name,
-      type: type,
-      url: '#',
-      uploadedAt: new Date().toISOString()
-    };
-    deals[dealIndex].documents.push(newDoc);
-    this.save('deals', deals);
-    return newDoc;
+    if (index !== -1) {
+      const newDoc = {
+        id: `doc-${Date.now()}`,
+        name: file.name,
+        type: 'other',
+        url: '#',
+        uploadedAt: new Date().toISOString()
+      };
+      offers[index].documents = [...(offers[index].documents || []), newDoc];
+      this.save('offers', offers);
+    }
   }
 
   async getTasks(): Promise<Task[]> {
-    return this.load('tasks', SEED_TASKS);
+    return this.load('tasks', []);
   }
 
   async createTask(task: Partial<Task>): Promise<Task> {
@@ -501,56 +299,134 @@ class DataService {
     }
   }
 
-  async deleteTask(taskId: string): Promise<void> {
-    let tasks = await this.getTasks();
-    tasks = tasks.filter(t => t.id !== taskId);
-    this.save('tasks', tasks);
+  async deleteTask(id: string): Promise<void> {
+    const tasks = await this.getTasks();
+    const filtered = tasks.filter(t => t.id !== id);
+    this.save('tasks', filtered);
   }
 
-  async getUpdates(dealId: string): Promise<Update[]> {
-    const updates = this.load<Update[]>('updates', SEED_UPDATES);
-    return updates.filter(u => u.dealId === dealId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  // --- Fix: Added missing Update/Activity methods ---
+  async getUpdates(): Promise<Update[]> {
+    return this.load('updates', []);
   }
 
   async getOfferUpdates(offerId: string): Promise<Update[]> {
-    const updates = this.load<Update[]>('updates', SEED_UPDATES);
+    const updates = await this.getUpdates();
     return updates.filter(u => u.offerId === offerId).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   async addUpdate(update: Partial<Update>): Promise<Update> {
-    const updates = this.load<Update[]>('updates', SEED_UPDATES);
+    const updates = await this.getUpdates();
     const newUpdate: Update = {
-      id: `u${Date.now()}`,
+      id: `upd-${Date.now()}`,
       dealId: update.dealId,
       offerId: update.offerId,
-      content: update.content!,
+      content: update.content || '',
       tag: update.tag || 'Note',
-      userId: update.userId!,
-      userName: update.userName!,
-      timestamp: new Date().toISOString(),
+      userId: update.userId || 'u1',
+      userName: update.userName || 'Unknown',
+      timestamp: new Date().toISOString()
     };
     updates.push(newUpdate);
     this.save('updates', updates);
     return newUpdate;
   }
 
-  async getGoogleEvents(): Promise<any[]> {
-    await delay(500);
-    return [];
+  async getContacts(): Promise<Contact[]> {
+    return this.load('contacts', []);
   }
 
-  async globalSearch(query: string): Promise<{ deals: Deal[], contacts: Contact[], offers: Offer[] }> {
-    const q = query.toLowerCase();
-    const deals = (await this.getDeals()).filter(d => 
-        d.address.toLowerCase().includes(q) || d.clientName.toLowerCase().includes(q)
-    ).slice(0, 3);
-    const contacts = (await this.getContacts()).filter(c => 
-        c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q)
-    ).slice(0, 3);
-    const offers = (await this.getAllOffers()).filter(o => 
-        o.clientName.toLowerCase().includes(q) || (o.propertyAddress && o.propertyAddress.toLowerCase().includes(q))
-    ).slice(0, 3);
-    return { deals, contacts, offers };
+  async addContact(contact: Partial<Contact>): Promise<Contact> {
+    const contacts = await this.getContacts();
+    const newContact: Contact = {
+      id: `c${Date.now()}`,
+      name: contact.name || 'Unknown',
+      email: contact.email || '',
+      phone: contact.phone || '',
+      type: contact.type || 'Lead',
+      notes: contact.notes,
+      lastContacted: contact.lastContacted
+    };
+    contacts.push(newContact);
+    this.save('contacts', contacts);
+    return newContact;
+  }
+
+  // --- Fix: Added missing Contact methods ---
+  async addContacts(newContacts: Partial<Contact>[]): Promise<void> {
+    for (const c of newContacts) {
+      await this.addContact(c);
+    }
+  }
+
+  async updateContact(contact: Contact): Promise<Contact> {
+    const contacts = await this.getContacts();
+    const index = contacts.findIndex(c => c.id === contact.id);
+    if (index !== -1) {
+      contacts[index] = contact;
+      this.save('contacts', contacts);
+    }
+    return contact;
+  }
+
+  async deleteContact(id: string): Promise<void> {
+    const contacts = await this.getContacts();
+    const filtered = contacts.filter(c => c.id !== id);
+    this.save('contacts', filtered);
+  }
+
+  async getReminders(userId: string): Promise<Reminder[]> {
+    const reminders = this.load<Reminder[]>('reminders', []);
+    return reminders.filter(r => r.userId === userId);
+  }
+
+  async addReminder(userId: string, content: string): Promise<Reminder> {
+    const reminders = this.load<Reminder[]>('reminders', []);
+    const reminder: Reminder = {
+      id: `r${Date.now()}`,
+      userId,
+      content,
+      isCompleted: false,
+      createdAt: new Date().toISOString()
+    };
+    reminders.push(reminder);
+    this.save('reminders', reminders);
+    return reminder;
+  }
+
+  async toggleReminder(id: string): Promise<void> {
+    const reminders = this.load<Reminder[]>('reminders', []);
+    const index = reminders.findIndex(r => r.id === id);
+    if (index !== -1) {
+      reminders[index].isCompleted = !reminders[index].isCompleted;
+      this.save('reminders', reminders);
+    }
+  }
+
+  async deleteReminder(id: string): Promise<void> {
+    const reminders = this.load<Reminder[]>('reminders', []);
+    const filtered = reminders.filter(r => r.id !== id);
+    this.save('reminders', filtered);
+  }
+
+  async getNotifications(userId: string): Promise<Notification[]> {
+    const notifications = this.load<Notification[]>('notifications', []);
+    return notifications.filter(n => n.userId === userId);
+  }
+
+  async markNotificationRead(id: string): Promise<void> {
+    const notifications = this.load<Notification[]>('notifications', []);
+    const index = notifications.findIndex(n => n.id === id);
+    if (index !== -1) {
+      notifications[index].isRead = true;
+      this.save('notifications', notifications);
+    }
+  }
+
+  async clearNotifications(userId: string): Promise<void> {
+    const notifications = this.load<Notification[]>('notifications', []);
+    const filtered = notifications.filter(n => n.userId !== userId);
+    this.save('notifications', filtered);
   }
 
   async getCRMDataSnapshot(): Promise<CrmData> {
@@ -560,8 +436,124 @@ class DataService {
     const contacts = await this.getContacts();
     const teamMembers = this.getTeamMembers();
     const user = this.getUser();
-    if (!user) throw new Error("User not authenticated for snapshot");
+    if (!user) throw new Error("User not authenticated");
     return { deals, tasks, offers, contacts, teamMembers, user };
+  }
+
+  async globalSearch(query: string): Promise<{ deals: Deal[], contacts: Contact[], offers: Offer[] }> {
+    const term = query.toLowerCase();
+    const deals = await this.getDeals();
+    const contacts = await this.getContacts();
+    const offers = await this.getAllOffers();
+
+    return {
+      deals: deals.filter(d => 
+        d.property_address.toLowerCase().includes(term) || 
+        d.clientName.toLowerCase().includes(term) ||
+        d.mlsNumber?.toLowerCase().includes(term)
+      ),
+      contacts: contacts.filter(c => 
+        c.name.toLowerCase().includes(term) || 
+        c.email.toLowerCase().includes(term)
+      ),
+      offers: offers.filter(o => 
+        o.clientName.toLowerCase().includes(term) ||
+        o.propertyAddress.toLowerCase().includes(term)
+      )
+    };
+  }
+
+  // --- Fix: Added missing Chat methods ---
+  async getChannels(): Promise<ChatChannel[]> {
+    return this.load('channels', [
+      { id: 'general', name: 'general', type: 'public' },
+      { id: 'leads', name: 'leads', type: 'public' },
+      { id: 'random', name: 'random', type: 'public' }
+    ]);
+  }
+
+  async createChannel(name: string): Promise<ChatChannel> {
+    const channels = await this.getChannels();
+    const newChannel: ChatChannel = {
+      id: `ch-${Date.now()}`,
+      name: name.toLowerCase().replace(/\s+/g, '-'),
+      type: 'public'
+    };
+    channels.push(newChannel);
+    this.save('channels', channels);
+    return newChannel;
+  }
+
+  async getMessages(channelId: string): Promise<ChatMessage[]> {
+    const allMessages = this.load<ChatMessage[]>('chat_messages', []);
+    return allMessages.filter(m => m.channelId === channelId);
+  }
+
+  async sendMessage(message: Partial<ChatMessage>): Promise<ChatMessage> {
+    const allMessages = this.load<ChatMessage[]>('chat_messages', []);
+    const newMessage: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      channelId: message.channelId || 'general',
+      userId: message.userId || 'u1',
+      userName: message.userName || 'Unknown',
+      userInitials: message.userInitials || '?',
+      content: message.content || '',
+      timestamp: new Date().toISOString()
+    };
+    allMessages.push(newMessage);
+    this.save('chat_messages', allMessages);
+    return newMessage;
+  }
+
+  async clearMessages(channelId: string): Promise<void> {
+    const allMessages = this.load<ChatMessage[]>('chat_messages', []);
+    const filtered = allMessages.filter(m => m.channelId !== channelId);
+    this.save('chat_messages', filtered);
+  }
+
+  async getGoogleEvents(): Promise<CalendarEvent[]> {
+    return [];
+  }
+
+  // --- Fix: Added missing Smart Import method ---
+  async processSmartImport(records: SmartImportRecord[]): Promise<SmartImportSummary> {
+    let dealsCount = 0;
+    let leadsCount = 0;
+    let contactsCount = 0;
+
+    for (const record of records) {
+      if (record.record_type === 'ClosedDeal' || record.record_type === 'ActiveDeal') {
+        await this.createDeal({
+          property_address: record.data.address || 'Imported Address',
+          city: record.data.city || '',
+          zip: record.data.zip || '',
+          property_type: record.data.property_type || 'Residential',
+          beds: record.data.bedrooms || 0,
+          price: record.data.sale_price || 0,
+          status: record.record_type === 'ClosedDeal' ? 'Closed' : 'Active',
+          owner_name: record.data.full_name,
+          clientName: record.data.full_name,
+          notes: record.data.notes
+        });
+        dealsCount++;
+      } else if (record.record_type === 'Lead') {
+        await this.addContact({
+          name: record.data.full_name,
+          type: 'Lead',
+          notes: `${record.data.notes}\nInterested in: ${record.data.address || 'N/A'}`
+        });
+        leadsCount++;
+      } else {
+        await this.addContact({
+          name: record.data.full_name,
+          type: 'Other',
+          notes: record.data.notes
+        });
+        contactsCount++;
+      }
+    }
+
+    return { deals: dealsCount, leads: leadsCount, contacts: contactsCount };
   }
 }
 

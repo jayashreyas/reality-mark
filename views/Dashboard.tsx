@@ -1,8 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
-import { Deal, Task, User, AppState, Reminder, Offer } from '../types';
+import { Deal, Task, User, AppState, Reminder, Offer, CrmData } from '../types';
 import { Card, Badge, Button } from '../components/Shared';
-import { ArrowRight, Briefcase, Clock, Bell, Plus, Trash2, DollarSign } from 'lucide-react';
+import { ArrowRight, Briefcase, Clock, Bell, Plus, Trash2, DollarSign, Sparkles, Upload } from 'lucide-react';
 import { dataService } from '../services/dataService';
+import { getDailyBriefing } from '../services/geminiService';
+import { SmartImportModal } from '../components/SmartImportModal';
 
 interface DashboardProps {
   deals: Deal[];
@@ -12,21 +15,49 @@ interface DashboardProps {
   onOpenDeal: (id: string) => void;
   offers: Offer[];
   onCreateDeal: () => void;
+  onRefreshData: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavigate, onOpenDeal, offers, onCreateDeal }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ 
+  deals, tasks, user, onNavigate, onOpenDeal, offers, onCreateDeal, onRefreshData 
+}) => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [newReminder, setNewReminder] = useState('');
+  const [briefing, setBriefing] = useState<string | null>(null);
+  const [isBriefingLoading, setIsBriefingLoading] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
   const activeDeals = deals.filter(d => ['Lead', 'Active', 'Under Contract'].includes(d.status));
   const myTasks = tasks
     .filter(t => t.assignedToName === user.displayName && t.status !== 'Completed')
     .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
-    .slice(0, 5); // Show top 5
+    .slice(0, 5); 
   
   useEffect(() => {
     dataService.getReminders(user.id).then(setReminders);
-  }, [user.id]);
+    loadBriefing();
+  }, [user.id, deals.length]); // Refresh briefing if deals change
+
+  const loadBriefing = async () => {
+    if (deals.length === 0) return;
+    setIsBriefingLoading(true);
+    try {
+      const contacts = await dataService.getContacts();
+      const briefingText = await getDailyBriefing({
+        deals,
+        tasks,
+        offers,
+        contacts,
+        teamMembers: [], // Not needed for briefing logic
+        user
+      });
+      setBriefing(briefingText);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsBriefingLoading(false);
+    }
+  };
 
   const handleAddReminder = async () => {
     if (!newReminder.trim()) return;
@@ -37,7 +68,6 @@ export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavi
 
   const handleToggleReminder = async (id: string) => {
     await dataService.toggleReminder(id);
-    // Optimistic update
     setReminders(reminders.map(r => r.id === id ? { ...r, isCompleted: !r.isCompleted } : r));
   };
 
@@ -63,8 +93,45 @@ export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavi
           <h2 className="text-3xl font-bold text-gray-900">Welcome back, {user.displayName.split(' ')[0]} 👋</h2>
           <p className="text-gray-500 mt-2">Here's what's happening in your team today.</p>
         </div>
-        <Button onClick={onCreateDeal} icon={<Plus size={18} />}>New Deal</Button>
+        <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              icon={<Upload size={18} className="text-indigo-600" />} 
+              onClick={() => setIsImportModalOpen(true)}
+            >
+              📥 Smart Import
+            </Button>
+            <Button variant="outline" icon={<Sparkles size={18} className="text-purple-600" />} onClick={loadBriefing} disabled={isBriefingLoading}>
+                {isBriefingLoading ? 'Thinking...' : 'Refresh Insights'}
+            </Button>
+            <Button onClick={onCreateDeal} icon={<Plus size={18} />}>New Deal</Button>
+        </div>
       </header>
+
+      {/* AI Daily Briefing Widget */}
+      {(briefing || isBriefingLoading) && (
+        <Card className="border-l-4 border-l-purple-500 bg-gradient-to-r from-purple-50 to-white overflow-hidden group">
+            <div className="flex items-start gap-4">
+                <div className="bg-purple-100 p-2.5 rounded-lg text-purple-600 flex-shrink-0 animate-pulse">
+                    <Sparkles size={20} />
+                </div>
+                <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-purple-900 uppercase tracking-wider mb-2">Nexus Daily Briefing</h3>
+                    {isBriefingLoading ? (
+                        <div className="space-y-2 py-2">
+                            <div className="h-3 bg-purple-100 rounded-full w-3/4 animate-pulse"></div>
+                            <div className="h-3 bg-purple-100 rounded-full w-1/2 animate-pulse"></div>
+                            <div className="h-3 bg-purple-100 rounded-full w-2/3 animate-pulse"></div>
+                        </div>
+                    ) : (
+                        <div className="text-sm text-gray-800 leading-relaxed whitespace-pre-line prose-sm prose-indigo">
+                            {briefing}
+                        </div>
+                    )}
+                </div>
+            </div>
+        </Card>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -221,6 +288,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ deals, tasks, user, onNavi
           </div>
         </div>
       </div>
+
+      <SmartImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onSuccess={() => onRefreshData()}
+      />
     </div>
   );
 };
