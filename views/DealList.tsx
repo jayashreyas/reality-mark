@@ -18,7 +18,7 @@ export const DealList: React.FC<DealListProps> = ({ deals, onOpenDeal, onNewDeal
   const [isLookupModalOpen, setIsLookupModalOpen] = useState(false);
 
   // Pipeline Stages per requirements
-  const PIPELINE_STAGES: DealStatus[] = ['Active', 'Under Contract', 'Pending', 'Closed'];
+  const PIPELINE_STAGES: DealStatus[] = ['Lead', 'Active', 'Under Contract', 'Pending', 'Closed'];
 
   const filteredDeals = (deals || []).filter(d => 
     (d.address?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||

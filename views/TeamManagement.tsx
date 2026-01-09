@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { User, UserRole } from '../types';
 import { Card, Badge, Button, InputGroup, Modal } from '../components/Shared';
-import { Users, Plus, Trash2, Shield, User as UserIcon, Mail, Phone, Edit2 } from 'lucide-react';
+import { Users, Plus, Trash2, Shield, User as UserIcon, Mail, Phone, Edit2, X } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface TeamManagementProps {

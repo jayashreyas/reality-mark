@@ -90,7 +90,7 @@ export const MyTasks: React.FC<MyTasksProps> = ({ tasks, deals, user, teamMember
 
   const handleToggleStatus = async (task: Task) => {
     const newStatus = task.status === 'Completed' ? 'To Do' : 'Completed';
-    await dataService.updateTask({ ...task, status: newStatus });
+    await dataService.updateTask({ ...task, status: newStatus as any });
     onRefreshData();
   };
 
@@ -98,7 +98,7 @@ export const MyTasks: React.FC<MyTasksProps> = ({ tasks, deals, user, teamMember
     const headers = "Title,Status,Priority,Due Date,Assigned To,Deal";
     const rows = filteredTasks.map(t => {
       const deal = deals.find(d => d.id === t.dealId);
-      return `"${t.title}",${t.status},${t.priority},${new Date(t.dueDate).toLocaleDateString()},"${t.assignedToName}","${deal ? deal.property_address : ''}"`;
+      return `"${t.title}",${t.status},${t.priority},${new Date(t.dueDate).toLocaleDateString()},"${t.assignedToName}","${deal ? deal.address : ''}"`;
     });
     const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].join('\n');
     const link = document.createElement("a");
@@ -272,7 +272,7 @@ export const MyTasks: React.FC<MyTasksProps> = ({ tasks, deals, user, teamMember
                >
                   <option value="">None</option>
                   {deals.map(d => (
-                     <option key={d.id} value={d.id}>{d.property_address}</option>
+                     <option key={d.id} value={d.id}>{d.address}</option>
                   ))}
                </select>
             </InputGroup>

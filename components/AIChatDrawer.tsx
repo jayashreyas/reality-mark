@@ -4,6 +4,7 @@ import { X, Send, Sparkles, User as UserIcon, Bot, Trash2 } from 'lucide-react';
 import { Button } from './Shared';
 import { dataService } from '../services/dataService';
 import { queryCRM } from '../services/geminiService';
+import { CrmData } from '../types';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -38,7 +39,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose }) =
     setIsLoading(true);
 
     try {
-      const crmData = await dataService.getCRMDataSnapshot();
+      const crmData: CrmData = await dataService.getCRMDataSnapshot();
       const response = await queryCRM(userMsg, crmData);
       setMessages(prev => [...prev, { role: 'assistant', content: response }]);
     } catch (error) {

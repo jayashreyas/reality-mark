@@ -203,14 +203,14 @@ export const AddressLookupModal: React.FC<AddressLookupModalProps> = ({ isOpen, 
                 <div className="space-y-4">
                     <h5 className="text-xs font-black text-gray-400 uppercase border-b pb-1">Client & Terms</h5>
                     <InputGroup label="Registered Owner / Client">
-                        <input className="w-full border border-gray-300 rounded-lg p-2.5 bg-blue-50/20" value={formData.client_name} onChange={e => setFormData({...formData, client_name: e.target.value})}/>
+                        <input className="w-full border border-gray-300 rounded-lg p-2.5 bg-blue-50/20" value={formData.client_name || ''} onChange={e => setFormData({...formData, client_name: e.target.value})}/>
                     </InputGroup>
                     <InputGroup label="Est. Price ($)">
                         <input type="number" className="w-full border border-gray-300 rounded-lg p-2.5 font-bold text-indigo-700" value={formData.price} onChange={e => setFormData({...formData, price: Number(e.target.value)})}/>
                     </InputGroup>
                     <div className="grid grid-cols-2 gap-3">
-                         <InputGroup label="Beds"><input className="w-full border border-gray-300 rounded-lg p-2" value={formData.beds} onChange={e => setFormData({...formData, beds: Number(e.target.value)})}/></InputGroup>
-                         <InputGroup label="Baths"><input className="w-full border border-gray-300 rounded-lg p-2" value={formData.baths} onChange={e => setFormData({...formData, baths: Number(e.target.value)})}/></InputGroup>
+                         <InputGroup label="Beds"><input type="number" className="w-full border border-gray-300 rounded-lg p-2" value={formData.beds} onChange={e => setFormData({...formData, beds: Number(e.target.value)})}/></InputGroup>
+                         <InputGroup label="Baths"><input type="number" className="w-full border border-gray-300 rounded-lg p-2" value={formData.baths} onChange={e => setFormData({...formData, baths: Number(e.target.value)})}/></InputGroup>
                     </div>
                 </div>
                 <div className="space-y-4">
@@ -223,10 +223,10 @@ export const AddressLookupModal: React.FC<AddressLookupModalProps> = ({ isOpen, 
                         </select>
                     </InputGroup>
                     <InputGroup label="Property Type">
-                        <input className="w-full border border-gray-300 rounded-lg p-2.5" value={formData.property_type} onChange={e => setFormData({...formData, property_type: e.target.value})}/>
+                        <input className="w-full border border-gray-300 rounded-lg p-2.5" value={formData.property_type || ''} onChange={e => setFormData({...formData, property_type: e.target.value})}/>
                     </InputGroup>
                     <InputGroup label="Listed Date">
-                        <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5" value={formData.listed_date} onChange={e => setFormData({...formData, listed_date: e.target.value})}/>
+                        <input type="date" className="w-full border border-gray-300 rounded-lg p-2.5" value={formData.listed_date || ''} onChange={e => setFormData({...formData, listed_date: e.target.value})}/>
                     </InputGroup>
                 </div>
             </div>

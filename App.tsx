@@ -2,39 +2,39 @@
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './views/Dashboard';
-import { DealList } from './views/DealList';
+import { ListingPipeline } from './views/ListingPipeline';
+import { OfferPipeline } from './views/OfferPipeline';
 import { MyTasks } from './views/MyTasks';
 import { CalendarView } from './views/CalendarView';
-import { DealRoomModal } from './views/DealRoom';
 import { TeamManagement } from './views/TeamManagement';
 import { Chat } from './views/Chat';
 import { Contacts } from './views/Contacts';
 import { Login } from './views/Login';
 import { Profile } from './views/Profile';
-import { OffersList } from './views/OffersList';
-import { AppState, Deal, Task, Update, User, Offer, Contact } from './types';
+import { AppState, Listing, Task, User, Offer, Contact, Deal } from './types';
 import { dataService } from './services/dataService';
 import { Modal, InputGroup, Button } from './components/Shared';
+import { SmartImportModal } from './components/SmartImportModal';
+import { ListingDetailsModal } from './components/ListingDetailsModal';
+import { NewListingModal } from './components/NewListingModal';
 
 export default function App() {
   const [view, setView] = useState<AppState['view']>('dashboard');
-  const [selectedDealId, setSelectedDealId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   // Data State
-  const [deals, setDeals] = useState<Deal[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [allOffers, setAllOffers] = useState<Offer[]>([]);
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   
-  // UI State
-  const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
+  // Modal & Selection State
+  const [isNewListingModalOpen, setIsNewListingModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  // New Deal Form State
-  const [newDealClient, setNewDealClient] = useState('');
-  const [newDealAddress, setNewDealAddress] = useState('');
 
   useEffect(() => {
     const user = dataService.getUser();
@@ -45,142 +45,85 @@ export default function App() {
 
   const refreshData = async () => {
     try {
-      const [d, t, tm, offers, c] = await Promise.all([
-        dataService.getDeals(),
-        dataService.getTasks(),
-        dataService.getTeamMembers(),
-        dataService.getAllOffers(),
-        dataService.getContacts()
-      ]);
-      setDeals(d);
-      setTasks(t);
-      setTeamMembers(tm);
-      setAllOffers(offers);
-      setContacts(c);
+      const data = await dataService.getCRMDataSnapshot();
+      setListings(data.listings);
+      setTasks(data.tasks);
+      setOffers(data.offers);
+      setContacts(data.contacts);
+      setDeals(data.deals);
+      setTeamMembers(dataService.getTeamMembers());
     } catch (error) {
-      console.error("Refresh Data Error:", error);
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleNavigate = (newView: AppState['view']) => setView(newView);
-  const handleOpenDeal = (id: string) => setSelectedDealId(id);
-  const handleCloseDealModal = () => setSelectedDealId(null);
-  const handleLogout = () => { setCurrentUser(null); setView('dashboard'); };
-  const handleLogin = (user: User) => { setCurrentUser(user); refreshData(); };
+  const selectedListing = listings.find(l => l.id === selectedListingId);
 
-  const handleCreateDeal = async () => {
-    if (!newDealClient || !newDealAddress || !currentUser) return;
-    setIsLoading(true);
-    const newDeal = await dataService.createDeal({
-      client_name: newDealClient,
-      address: newDealAddress,
-      primaryAgentId: currentUser.id,
-      primaryAgentName: currentUser.displayName,
-      status: 'Active',
-      transaction_type: 'Sale'
-    });
-    setNewDealClient('');
-    setNewDealAddress('');
-    setIsNewDealModalOpen(false);
-    await refreshData();
-    handleOpenDeal(newDeal.id);
-  };
-
-  const handleDeleteDeal = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this deal room?")) {
-      await dataService.deleteDeal(id);
-      if (selectedDealId === id) setSelectedDealId(null);
-      await refreshData();
-    }
-  };
-
-  if (!currentUser) return <Login onLogin={handleLogin} />;
-  
-  if (isLoading && deals.length === 0) {
-    return <div className="h-screen w-screen flex items-center justify-center bg-gray-50 text-indigo-600 font-medium">Loading Reality Mark...</div>;
-  }
-
-  const selectedDeal = deals.find(d => d.id === selectedDealId);
+  if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); refreshData(); }} />;
+  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-indigo-600 animate-pulse bg-slate-900">BOOTING REALITY MARK...</div>;
 
   return (
-    <Layout user={currentUser} currentView={view} onNavigate={handleNavigate} onLogout={handleLogout}>
+    <Layout 
+      user={currentUser} 
+      currentView={view} 
+      onNavigate={setView} 
+      onLogout={() => { setCurrentUser(null); dataService.logout(); }}
+      onOpenImport={() => setIsImportModalOpen(true)}
+    >
       {view === 'dashboard' && (
         <Dashboard 
-          deals={deals} tasks={tasks} user={currentUser} 
-          onNavigate={handleNavigate} onOpenDeal={handleOpenDeal} 
-          offers={allOffers} onCreateDeal={() => setIsNewDealModalOpen(true)}
+          listings={listings} tasks={tasks} user={currentUser} 
+          onNavigate={setView} onOpenListing={setSelectedListingId} 
+          offers={offers} onCreateListing={() => setIsNewListingModalOpen(true)}
           onRefreshData={refreshData}
         />
       )}
-      {view === 'deals' && (
-        <DealList 
-          deals={deals} 
-          onOpenDeal={handleOpenDeal} 
-          onNewDeal={() => setIsNewDealModalOpen(true)}
-          onRefreshData={refreshData}
+      {view === 'listings' && (
+        <ListingPipeline 
+          listings={listings} onOpenListing={setSelectedListingId} 
+          onNewListing={() => setIsNewListingModalOpen(true)}
+          onRefresh={refreshData}
         />
       )}
       {view === 'offers' && (
-        <OffersList
-          offers={allOffers} deals={deals} currentUser={currentUser}
-          onRefreshData={refreshData} onOpenDeal={handleOpenDeal}
+        <OfferPipeline
+          offers={offers} listings={listings} currentUser={currentUser}
+          onRefreshData={refreshData} onOpenListing={setSelectedListingId}
         />
       )}
       {view === 'contacts' && <Contacts contacts={contacts} onRefresh={refreshData} />}
-      {view === 'mytasks' && (
-        <MyTasks 
-          tasks={tasks} deals={deals} user={currentUser}
-          teamMembers={teamMembers} onRefreshData={refreshData} onOpenDeal={handleOpenDeal}
-        />
-      )}
-      {view === 'calendar' && (
-        <CalendarView 
-          tasks={tasks} deals={deals} teamMembers={teamMembers}
-          onRefreshData={refreshData} onOpenDeal={handleOpenDeal}
-        />
-      )}
+      {view === 'mytasks' && <MyTasks tasks={tasks} deals={deals} user={currentUser} teamMembers={teamMembers} onRefreshData={refreshData} onOpenDeal={() => {}} />}
+      {view === 'calendar' && <CalendarView tasks={tasks} deals={deals} teamMembers={teamMembers} onRefreshData={refreshData} onOpenDeal={() => {}} />}
       {view === 'messages' && <Chat currentUser={currentUser} />}
-      {view === 'team' && currentUser.role === 'admin' && (
-        <TeamManagement
-          currentUser={currentUser} teamMembers={teamMembers}
-          onTeamUpdate={(updatedTeam) => {
-            setTeamMembers(updatedTeam);
-            const me = updatedTeam.find(u => u.id === currentUser.id);
-            if (me) setCurrentUser(me);
-          }}
-        />
-      )}
-      {view === 'profile' && (
-        <Profile 
-          user={currentUser} 
-          onUpdate={(updatedUser) => { setCurrentUser(updatedUser); refreshData(); }}
+      {view === 'team' && <TeamManagement currentUser={currentUser} teamMembers={teamMembers} onTeamUpdate={refreshData} />}
+      {view === 'profile' && <Profile user={currentUser} onUpdate={refreshData} />}
+
+      {isNewListingModalOpen && (
+        <NewListingModal 
+          isOpen={isNewListingModalOpen} 
+          onClose={() => setIsNewListingModalOpen(false)} 
+          currentUser={currentUser} 
+          onSuccess={refreshData} 
         />
       )}
 
-      {selectedDeal && (
-        <DealRoomModal
-          isOpen={!!selectedDealId}
-          onClose={handleCloseDealModal}
-          deal={selectedDeal}
-          user={currentUser}
-          onRefreshData={refreshData}
-          onDeleteDeal={handleDeleteDeal}
+      <SmartImportModal 
+        isOpen={isImportModalOpen} 
+        onClose={() => setIsImportModalOpen(false)} 
+        onSuccess={refreshData} 
+      />
+
+      {selectedListing && (
+        <ListingDetailsModal 
+          isOpen={!!selectedListing} 
+          onClose={() => setSelectedListingId(null)} 
+          listing={selectedListing} 
+          currentUser={currentUser} 
+          onRefresh={refreshData}
         />
       )}
-
-      <Modal isOpen={isNewDealModalOpen} onClose={() => setIsNewDealModalOpen(false)} title="Manual Transaction Entry">
-        <div className="space-y-4">
-          <InputGroup label="Primary Client Name">
-            <input className="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-gray-900" value={newDealClient} onChange={e => setNewDealClient(e.target.value)} />
-          </InputGroup>
-          <InputGroup label="Property Address">
-            <input className="w-full border border-gray-300 rounded-lg p-2.5 bg-white text-gray-900" value={newDealAddress} onChange={e => setNewDealAddress(e.target.value)} />
-          </InputGroup>
-          <Button className="w-full rounded-xl py-3 font-bold" onClick={handleCreateDeal}>Open Deal Room</Button>
-        </div>
-      </Modal>
     </Layout>
   );
 }

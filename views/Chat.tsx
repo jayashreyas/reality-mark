@@ -42,7 +42,7 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
     // Fetch messages for active channel
     const currentChannelMsgs = await dataService.getMessages(activeChannel);
     
-    // Fetch all messages for previews (Mock efficiency hack)
+    // Fetch all messages for previews
     const all: ChatMessage[] = [];
     for (const ch of fetchedChannels) {
       const msgs = await dataService.getMessages(ch.id);
@@ -55,7 +55,7 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 1000); // 1s polling for "reactive" feel
+    const interval = setInterval(fetchData, 2000); // 2s polling for "reactive" feel
     return () => clearInterval(interval);
   }, [activeChannel]);
 
@@ -160,7 +160,7 @@ export const Chat: React.FC<ChatProps> = ({ currentUser }) => {
   };
 
   const activeChannelObj = channels.find(c => c.id === activeChannel);
-  const activeChannelVisuals = activeChannelObj ? getChannelVisuals(activeChannelObj) : { color: 'bg-gray-200', icon: <Hash /> };
+  const activeChannelVisuals = activeChannelObj ? getChannelVisuals(activeChannelObj) : { color: 'bg-gray-200 text-gray-600', icon: <Hash size={20} /> };
   
   // Filters
   const filteredChannels = channels.filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()));

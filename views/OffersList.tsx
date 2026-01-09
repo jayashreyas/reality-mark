@@ -49,7 +49,7 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
   const [formAmount, setFormAmount] = useState<number>(0);
   const [formEMDPercent, setFormEMDPercent] = useState<number>(1.0);
   const [formLoanType, setFormLoanType] = useState('Conventional');
-  const [formStatus, setFormStatus] = useState<OfferStatus>('Pending');
+  const [formStatus, setFormStatus] = useState<OfferStatus>('Pending' as any);
   const [formNotes, setFormNotes] = useState('');
 
   // Load sub-data when editing offer
@@ -69,10 +69,10 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
   }, [offerUpdates, activeTab]);
 
   const filteredOffers = offers.filter(offer => {
-    const deal = deals.find(d => d.id === offer.dealId);
-    const dealAddress = offer.propertyAddress || deal?.address || '';
+    const deal = deals.find(d => d.id === offer.deal_id || d.id === offer.listing_id);
+    const dealAddress = offer.property_address || offer.propertyAddress || deal?.address || '';
     const matchesSearch = 
-        offer.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (offer.buyer_name || offer.clientName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         dealAddress.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = filterStatus === 'All' || offer.status === filterStatus;
     
@@ -83,17 +83,18 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
     setActiveTab('details');
     if (offer) {
       setEditingOffer(offer);
-      setFormPropertyAddress(offer.propertyAddress);
-      setFormClient(offer.clientName);
+      setFormPropertyAddress(offer.property_address || offer.propertyAddress || '');
+      setFormClient(offer.buyer_name || offer.clientName || '');
       setFormCoBuyer(offer.coBuyerName || '');
-      setFormEmail(offer.buyerEmail || '');
+      // Fix: Removed reference to non-existent buyerEmail property
+      setFormEmail(offer.buyer_email || '');
       setFormCoBuyerEmail(offer.coBuyerEmail || '');
       setFormAddress(offer.buyerAddress || '');
-      setFormAmount(offer.amount);
+      setFormAmount(offer.offer_price || offer.amount || 0);
       setFormEMDPercent(offer.earnestMoneyPercent || 1.0);
-      setFormLoanType(offer.loanType || 'Conventional');
+      setFormLoanType(offer.financing_type || offer.loanType || 'Conventional');
       setFormStatus(offer.status);
-      setFormNotes(offer.notes || '');
+      setFormNotes(offer.agent_notes || offer.notes || '');
     } else {
       setEditingOffer(null);
       setFormPropertyAddress('');
@@ -105,7 +106,7 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
       setFormAmount(0);
       setFormEMDPercent(1.0);
       setFormLoanType('Conventional');
-      setFormStatus('Pending');
+      setFormStatus('Submitted');
       setFormNotes('');
       setOfferTasks([]);
       setOfferUpdates([]);
@@ -122,32 +123,32 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
     if (editingOffer) {
       await dataService.updateOffer({
         ...editingOffer,
-        propertyAddress: formPropertyAddress,
-        clientName: formClient,
+        property_address: formPropertyAddress,
+        buyer_name: formClient,
         coBuyerName: formCoBuyer,
-        buyerEmail: formEmail,
+        buyer_email: formEmail,
         coBuyerEmail: formCoBuyerEmail,
         buyerAddress: formAddress,
-        amount: formAmount,
+        offer_price: formAmount,
         earnestMoneyPercent: formEMDPercent,
-        loanType: formLoanType as any,
+        financing_type: formLoanType as any,
         status: formStatus,
-        notes: formNotes
+        agent_notes: formNotes
       });
     } else {
       await dataService.createOffer({
-        propertyAddress: formPropertyAddress,
-        clientName: formClient,
+        property_address: formPropertyAddress,
+        buyer_name: formClient,
         coBuyerName: formCoBuyer,
-        buyerEmail: formEmail,
+        buyer_email: formEmail,
         coBuyerEmail: formCoBuyerEmail,
         buyerAddress: formAddress,
-        amount: formAmount,
+        offer_price: formAmount,
         earnestMoneyPercent: formEMDPercent,
-        loanType: formLoanType as any,
+        financing_type: formLoanType as any,
         status: formStatus,
-        notes: formNotes,
-        submittedDate: new Date().toISOString(),
+        agent_notes: formNotes,
+        created_at: new Date().toISOString(),
         documents: []
       });
     }
@@ -160,7 +161,7 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
     setIsNegotiatorLoading(true);
     setIsNegotiatorOpen(true);
     try {
-        const deal = deals.find(d => d.id === editingOffer.dealId);
+        const deal = deals.find(d => d.id === editingOffer.deal_id || d.id === editingOffer.listing_id);
         const draft = await generateCounterOffer(editingOffer, deal);
         setNegotiatorDraft(draft);
     } catch (e) {
@@ -216,7 +217,7 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
       if (e.target.files && e.target.files[0]) {
           await dataService.addOfferDocument(offerId, e.target.files[0]);
           if (editingOffer && editingOffer.id === offerId) {
-             const updatedAll = await dataService.getAllOffers();
+             const updatedAll = await dataService.getOffers();
              const updated = updatedAll.find(o => o.id === offerId);
              if (updated) setEditingOffer(updated);
           }
@@ -269,16 +270,16 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
               {filteredOffers.map(offer => (
                 <tr key={offer.id} className="hover:bg-gray-50 transition-colors group cursor-pointer" onClick={() => handleOpenModal(offer)}>
                   <td className="px-6 py-4 text-gray-900 font-medium">
-                      {offer.propertyAddress || 'Unknown'}
+                      {offer.property_address || offer.propertyAddress || 'Unknown'}
                   </td>
                   <td className="px-6 py-4 text-gray-600">
-                      {offer.clientName}
+                      {offer.buyer_name || offer.clientName}
                   </td>
                    <td className="px-6 py-4 text-gray-600 font-medium">
-                       ${offer.amount.toLocaleString()}
+                       ${(offer.offer_price || offer.amount || 0).toLocaleString()}
                    </td>
                    <td className="px-6 py-4 text-gray-600">
-                       {offer.earnestMoneyPercent ? `${offer.earnestMoneyPercent}%` : 'N/A'}
+                       {offer.down_payment ? `${offer.down_payment}%` : (offer.earnestMoneyPercent ? `${offer.earnestMoneyPercent}%` : 'N/A')}
                    </td>
                   <td className="px-6 py-4">
                      <Badge color={
@@ -395,6 +396,7 @@ export const OffersList: React.FC<OffersListProps> = ({ offers, deals, currentUs
                             onChange={e => setFormStatus(e.target.value as OfferStatus)}
                         >
                             <option value="Pending">Pending</option>
+                            <option value="Submitted">Submitted</option>
                             <option value="Accepted">Accepted</option>
                             <option value="Rejected">Rejected</option>
                             <option value="Countered">Countered</option>
