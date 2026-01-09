@@ -9,11 +9,9 @@ import { CalendarView } from './views/CalendarView';
 import { TeamManagement } from './views/TeamManagement';
 import { Chat } from './views/Chat';
 import { Contacts } from './views/Contacts';
-import { Login } from './views/Login';
 import { Profile } from './views/Profile';
 import { AppState, Listing, Task, User, Offer, Contact, Deal } from './types';
 import { dataService } from './services/dataService';
-import { Modal, InputGroup, Button } from './components/Shared';
 import { SmartImportModal } from './components/SmartImportModal';
 import { ListingDetailsModal } from './components/ListingDetailsModal';
 import { NewListingModal } from './components/NewListingModal';
@@ -37,39 +35,56 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const user = dataService.getUser();
-    setCurrentUser(user);
-    if (user) refreshData();
-    else setIsLoading(false);
+    const initApp = async () => {
+      try {
+        // Force initialize user to avoid the Login screen requirement
+        let user = dataService.getUser();
+        if (!user) {
+            user = dataService.login('admin@realitymark.com');
+        }
+        setCurrentUser(user);
+        await refreshData();
+      } catch (error) {
+        console.error("Initialization error:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    initApp();
   }, []);
 
   const refreshData = async () => {
     try {
       const data = await dataService.getCRMDataSnapshot();
-      setListings(data.listings);
-      setTasks(data.tasks);
-      setOffers(data.offers);
-      setContacts(data.contacts);
-      setDeals(data.deals);
-      setTeamMembers(dataService.getTeamMembers());
+      setListings(data.listings || []);
+      setTasks(data.tasks || []);
+      setOffers(data.offers || []);
+      setContacts(data.contacts || []);
+      setDeals(data.deals || []);
+      setTeamMembers(dataService.getTeamMembers() || []);
     } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
+      console.error("Data refresh error:", error);
     }
   };
 
   const selectedListing = listings.find(l => l.id === selectedListingId);
 
-  if (!currentUser) return <Login onLogin={(u) => { setCurrentUser(u); refreshData(); }} />;
-  if (isLoading) return <div className="h-screen flex items-center justify-center font-black text-indigo-600 animate-pulse bg-slate-900">BOOTING REALITY MARK...</div>;
+  // Simplified view rendering - No Login screen check
+  if (isLoading || !currentUser) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-900">
+        <div className="w-16 h-16 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <div className="font-black text-indigo-400 tracking-widest uppercase text-sm animate-pulse">Initializing System...</div>
+      </div>
+    );
+  }
 
   return (
     <Layout 
       user={currentUser} 
       currentView={view} 
       onNavigate={setView} 
-      onLogout={() => { setCurrentUser(null); dataService.logout(); }}
+      onLogout={() => { /* Logout disabled for now to prevent loop */ }}
       onOpenImport={() => setIsImportModalOpen(true)}
     >
       {view === 'dashboard' && (
@@ -100,14 +115,12 @@ export default function App() {
       {view === 'team' && <TeamManagement currentUser={currentUser} teamMembers={teamMembers} onTeamUpdate={refreshData} />}
       {view === 'profile' && <Profile user={currentUser} onUpdate={refreshData} />}
 
-      {isNewListingModalOpen && (
-        <NewListingModal 
-          isOpen={isNewListingModalOpen} 
-          onClose={() => setIsNewListingModalOpen(false)} 
-          currentUser={currentUser} 
-          onSuccess={refreshData} 
-        />
-      )}
+      <NewListingModal 
+        isOpen={isNewListingModalOpen} 
+        onClose={() => setIsNewListingModalOpen(false)} 
+        currentUser={currentUser} 
+        onSuccess={refreshData} 
+      />
 
       <SmartImportModal 
         isOpen={isImportModalOpen} 

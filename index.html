@@ -6,44 +6,66 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Reality Mark</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      // Global error handler to catch boot-up issues
+      window.onerror = function(msg, url, lineNo, columnNo, error) {
+        const root = document.getElementById('root');
+        if (root && root.innerHTML === '') {
+          root.innerHTML = `
+            <div style="padding: 24px; color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; font-family: sans-serif; margin: 20px;">
+              <h2 style="margin-top: 0; font-size: 18px;">Application Initialization Error</h2>
+              <p style="font-size: 14px;">${msg}</p>
+              <button onclick="window.location.reload()" style="margin-top: 12px; padding: 8px 16px; background: #991b1b; color: white; border: none; border-radius: 6px; cursor: pointer;">Retry Load</button>
+            </div>
+          `;
+        }
+        return false;
+      };
+      // Polyfill for environment variables
+      window.process = { env: { API_KEY: "" } };
+    </script>
     <style>
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
       body {
         font-family: 'Inter', sans-serif;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background-color: #f8fafc;
       }
-      .pac-container {
-        z-index: 10000 !important;
-        border-radius: 0.75rem;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        margin-top: 4px;
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
       }
-      .pac-item {
-        padding: 8px 12px;
-        cursor: pointer;
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
       }
-      .pac-item:hover {
-        background-color: #f9fafb;
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #e2e8f0;
+        border-radius: 10px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: #cbd5e1;
       }
     </style>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-    "vite": "https://aistudiocdn.com/vite@^7.2.6"
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+    "lucide-react": "https://esm.sh/lucide-react@0.475.0?external=react",
+    "@google/genai": "https://esm.sh/@google/genai@1.31.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
-<!-- Placeholder for Google Maps API - requires API Key in real environment -->
-<script src="https://maps.googleapis.com/maps/api/js?libraries=places"></script>
-</head>
+    <script src="https://maps.googleapis.com/maps/api/js?libraries=places"></script>
+  </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
   </body>
 </html>

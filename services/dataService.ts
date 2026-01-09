@@ -8,12 +8,21 @@ import {
 
 class DataService {
   private load<T>(key: string, seed: T): T {
-    const stored = localStorage.getItem(`reality_mark_${key}`);
-    return stored ? JSON.parse(stored) : seed;
+    try {
+      const stored = localStorage.getItem(`reality_mark_${key}`);
+      return stored ? JSON.parse(stored) : seed;
+    } catch (e) {
+      console.error(`Error loading ${key}:`, e);
+      return seed;
+    }
   }
 
   private save(key: string, data: any) {
-    localStorage.setItem(`reality_mark_${key}`, JSON.stringify(data));
+    try {
+      localStorage.setItem(`reality_mark_${key}`, JSON.stringify(data));
+    } catch (e) {
+      console.error(`Error saving ${key}:`, e);
+    }
   }
 
   // --- Deals ---
@@ -106,7 +115,13 @@ class DataService {
   }
 
   // --- User & Team ---
-  getUser(): User | null { return JSON.parse(localStorage.getItem('reality_mark_user') || 'null'); }
+  getUser(): User | null { 
+    try {
+      return JSON.parse(localStorage.getItem('reality_mark_user') || 'null'); 
+    } catch (e) {
+      return null;
+    }
+  }
   login(email: string) { const user = { id: 'u1', displayName: 'Admin User', initials: 'AU', role: 'admin' as UserRole, email }; localStorage.setItem('reality_mark_user', JSON.stringify(user)); return user; }
   logout() { localStorage.removeItem('reality_mark_user'); }
   updateUser(user: User) { localStorage.setItem('reality_mark_user', JSON.stringify(user)); }
@@ -142,7 +157,7 @@ class DataService {
   async sendMessage(msg: Partial<ChatMessage>): Promise<ChatMessage> { const key = `messages_${msg.channelId}`; const all = this.load(key, []); const nm = { id: `m-${Date.now()}`, timestamp: new Date().toISOString(), ...msg } as ChatMessage; all.push(nm); this.save(key, all); return nm; }
   async clearMessages(channelId: string): Promise<void> { this.save(`messages_${channelId}`, []); }
 
-  async getCRMDataSnapshot(): Promise<CrmData> { return { listings: await this.getListings(), offers: await this.getOffers(), contacts: await this.getContacts(), tasks: await this.getTasks(), deals: await this.getDeals(), teamMembers: this.getTeamMembers(), user: this.getUser() || { id: 'anon', displayName: 'Anon', initials: '??', role: 'agent' as UserRole } }; }
+  async getCRMDataSnapshot(): Promise<CrmData> { return { listings: await this.getListings(), offers: await this.getOffers(), contacts: await this.getContacts(), tasks: await this.getTasks(), deals: await this.getDeals(), teamMembers: this.getTeamMembers(), user: this.getUser() || { id: 'u1', displayName: 'Admin User', initials: 'AU', role: 'admin' as UserRole } }; }
 
   async processSmartImport(records: SmartImportRecord[]): Promise<SmartImportSummary> {
     const summary = { listings: 0, offers: 0, contacts: 0, tasks: 0 };

@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ListingStatus, User } from '../types';
 import { Modal, Button, InputGroup } from './Shared';
-import { Home, User as UserIcon, DollarSign, MapPin, Database, Sparkles, Save, Shield } from 'lucide-react';
+import { MapPin, DollarSign, Sparkles, Save } from 'lucide-react';
 import { dataService } from '../services/dataService';
 
 interface NewListingModalProps {
@@ -33,11 +33,19 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
 
     setIsSaving(true);
     try {
+      // Map the form to the professional schema required by the high-density dossier
       await dataService.createListing({
-        ...formData,
+        MLSNumber: formData.MLSNumber,
+        PropertyAddressFormatted: formData.PropertyAddressFormatted,
+        PropertyCityState: formData.PropertyCityState,
+        Zipcode: formData.Zipcode,
+        OwnerNames: formData.OwnerNames,
+        SaleAmt: Number(formData.SaleAmt) || 0,
         price: Number(formData.SaleAmt) || 0,
         address: formData.PropertyAddressFormatted,
         seller_name: formData.OwnerNames,
+        status: formData.status,
+        commission_rate: formData.commission_rate,
         primaryAgentId: currentUser.id,
         primaryAgentName: currentUser.displayName,
       });
@@ -81,7 +89,7 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-2 gap-6">
             <InputGroup label="Property Address (Formatted)">
               <input 
-                className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-indigo-500 outline-none font-bold bg-white" 
+                className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-indigo-500 outline-none font-bold bg-white text-slate-900" 
                 placeholder="e.g. 123 Main St"
                 value={formData.PropertyAddressFormatted}
                 onChange={e => setFormData({...formData, PropertyAddressFormatted: e.target.value})}
@@ -89,7 +97,7 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
             </InputGroup>
             <InputGroup label="MLS Number (Optional)">
               <input 
-                className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-indigo-500 outline-none font-bold bg-white" 
+                className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-indigo-500 outline-none font-bold bg-white text-slate-900" 
                 placeholder="MLS# 123456"
                 value={formData.MLSNumber}
                 onChange={e => setFormData({...formData, MLSNumber: e.target.value})}
@@ -99,7 +107,7 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
           <div className="grid grid-cols-3 gap-6">
             <InputGroup label="City / State">
               <input 
-                className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900" 
                 placeholder="Springfield, IL"
                 value={formData.PropertyCityState}
                 onChange={e => setFormData({...formData, PropertyCityState: e.target.value})}
@@ -107,7 +115,7 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
             </InputGroup>
             <InputGroup label="Zipcode">
               <input 
-                className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none" 
+                className="w-full border border-slate-300 rounded-xl p-3 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-900" 
                 placeholder="62704"
                 value={formData.Zipcode}
                 onChange={e => setFormData({...formData, Zipcode: e.target.value})}
@@ -115,7 +123,7 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
             </InputGroup>
             <InputGroup label="Primary Owner Name">
                <input 
-                className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-indigo-500 outline-none font-bold bg-white" 
+                className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-indigo-500 outline-none font-bold bg-white text-slate-900" 
                 placeholder="John & Jane Doe"
                 value={formData.OwnerNames}
                 onChange={e => setFormData({...formData, OwnerNames: e.target.value})}
@@ -153,7 +161,7 @@ export const NewListingModal: React.FC<NewListingModalProps> = ({ isOpen, onClos
               <input 
                 type="number" 
                 step="0.1" 
-                className="w-full border border-slate-300 rounded-xl p-3" 
+                className="w-full border border-slate-300 rounded-xl p-3 text-slate-900" 
                 value={formData.commission_rate}
                 onChange={e => setFormData({...formData, commission_rate: Number(e.target.value)})}
               />
